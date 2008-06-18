@@ -1,3 +1,10 @@
+sp-smaps (0.1.7) unstable; urgency=low
+
+  * Removed an obsolete script from the package.
+  * sp_smaps_snapshot manual page cleanup. Fixes: NB#86493
+
+ -- Eero Tamminen <eero.tamminen@nokia.com>  Wed, 18 Jun 2008 16:56:10 +0300
+
 sp-smaps (0.1.6) unstable; urgency=low
 
   * Running sp_smaps_snapshot as a root from serial console caused a
