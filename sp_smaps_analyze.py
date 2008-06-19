@@ -107,7 +107,7 @@ EXAMPLES
 %s
 
 SEE ALSO
-  sp_smaps_snapshot
+  sp_smaps_snapshot (1)
 """ % COPYRIGHT
 
 
@@ -146,7 +146,7 @@ EXAMPLES
 %s
 
 SEE ALSO
-  sp_smaps_snapshot, sp_smaps_normalize
+  sp_smaps_snapshot (1), sp_smaps_normalize (1)
 """ % COPYRIGHT
 
 # =============================================================================
@@ -184,7 +184,7 @@ EXAMPLES
 %s
 
 SEE ALSO
-  sp_smaps_snapshot, sp_smaps_normalize
+  sp_smaps_snapshot (1), sp_smaps_normalize (1)
 """ % COPYRIGHT
 
 
@@ -228,7 +228,7 @@ EXAMPLES
 %s
 
 SEE ALSO
-  sp_smaps_snapshot, sp_smaps_analyze
+  sp_smaps_snapshot (1), sp_smaps_analyze (1)
 """ % COPYRIGHT
 
 
@@ -301,7 +301,7 @@ NOTES
 %s
 
 SEE ALSO
-  sp_smaps_snapshot, sp_smaps_normalize, sp_smaps_analyze
+  sp_smaps_snapshot (1), sp_smaps_normalize (1), sp_smaps_analyze (1)
 """ % COPYRIGHT
 
 # ===========================================================================
