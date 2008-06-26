@@ -68,8 +68,7 @@
 #endif
 
 #define TOOL_NAME "sp_smaps_filter"
-#define TOOL_VERS "0.1.2"
-
+#include "release.h"
 
 /* ------------------------------------------------------------------------- *
  * Runtime Manual
@@ -155,7 +154,7 @@ static const manual_t app_man[]=
 	  "There is NO WARRANTY, to the extent permitted by law.\n"
           )
   MAN_ADD("SEE ALSO",
-          "sp_smaps_capture\n"
+          "sp_smaps_snapshot (1)\n"
           )
   MAN_END
 };

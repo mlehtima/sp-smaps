@@ -141,7 +141,7 @@ OPTIONS
 EXAMPLES
   %% <TOOL_NAME> smaps-*.cap
 
-    Converst all smaps data files in current directory for browsing.
+    Converts all smaps data files in current directory for browsing.
 
 %s
 
