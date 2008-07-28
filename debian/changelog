@@ -1,7 +1,15 @@
+sp-smaps (0.1.8) unstable; urgency=low
+
+  * Fixed incorrectly named reference to another manual page in
+    sp_smaps_filter and a spelling issue in sp_smaps_analyze
+    documentation. Fixes: NB#86493
+
+ -- Eero Tamminen <eero.tamminen@nokia.com>  Mon, 28 Jul 2008 15:10:56 +0300
+
 sp-smaps (0.1.7) unstable; urgency=low
 
   * Removed an obsolete script from the package.
-  * sp_smaps_snapshot manual page cleanup. Fixes: NB#86493
+  * sp_smaps_snapshot manual page cleanup.
 
  -- Eero Tamminen <eero.tamminen@nokia.com>  Wed, 18 Jun 2008 16:56:10 +0300
 
