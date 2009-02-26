@@ -1,5 +1,62 @@
 
 ==============================================================================
+2009 week 08 (23.02. - 01.03.)
+==============================================================================
+
+Makefile:
+    Simo Piiroinen
+        - fixed changelog source list
+
+sp_smaps_filter.c:
+    Simo Piiroinen
+        - lists unrecognized keys without exiting
+
+sp_smaps_snapshot.c:
+    Simo Piiroinen
+        - possible NULL dereference fixed
+
+==============================================================================
+2007 week 03 (15.01. - 21.01.)
+==============================================================================
+
+Makefile:
+    Simo Piiroinen
+        - sp_smaps_filter added to package
+
+sp_smaps_filter.c:
+    Simo Piiroinen
+        - fixed usage output
+        - code cleanup
+
+symtab.c:
+    Simo Piiroinen
+        - some comments added
+
+==============================================================================
+2006 week 45 (06.11. - 12.11.)
+==============================================================================
+
+symtab.c:
+    Simo Piiroinen
+        - initial version
+
+==============================================================================
+2006 week 42 (16.10. - 22.10.)
+==============================================================================
+
+sp_smaps_filter.c:
+    Simo Piiroinen
+        - initial version
+
+==============================================================================
+2006 week 21 (22.05. - 28.05.)
+==============================================================================
+
+prettyproto.py:
+    Simo Piiroinen
+        - minimal documentation
+
+==============================================================================
 2006 week 17 (24.04. - 30.04.)
 ==============================================================================
 
@@ -102,10 +159,6 @@ sp_smaps_normalize.py:
         - command line parser added
         - contollable verbosity
         - major cleanup
-
-sp_smaps_snapshot.sh:
-    Simo Piiroinen
-        - initial version
 
 ==============================================================================
 2005 week 20 (16.05. - 22.05.)
