@@ -29,7 +29,10 @@
  * -------------------------------------------------------------------------
  * 
  * History:
- * 
+ *
+ * 25-Feb-2009 Simo Piiroinen
+ * - possible NULL dereference fixed
+ *
  * 07-Apr-2006 Simo Piiroinen
  * - interleaves data from /proc/pid/status to output
  * - application name taken from /proc/pid/cmdline
@@ -926,14 +929,15 @@ static int snapshot_all(void)
       {
 	name = strip(cmdline_text);
       }
-	if( *(name) == 0 )
+
+      if( name == 0 || *name == 0 )
+      {
+	if( *(name = strip(basename(exe))) == 0 )
 	{
-	  if( *(name = strip(basename(exe))) == 0 )
-	  {
-	    name = strip(status.Name);
-	  }
+	  name = strip(status.Name);
 	}
-    
+      }
+
       output_fmt("#Name: %s\n", *name ? fix_command_name(name): "unknown");
       
 #define X(v) if( status.v ) output_fmt("#%s: %s\n",#v,status.v);
