@@ -27,9 +27,12 @@
  * Author: Simo Piiroinen
  * 
  * -------------------------------------------------------------------------
- * 
+ *
  * History:
- * 
+ *
+ * 25-Feb-2009 Simo Piiroinen
+ * - lists unrecognized keys without exiting
+ *
  * 18-Jan-2007 Simo Piiroinen
  * - fixed usage output
  * - code cleanup
@@ -259,6 +262,103 @@ static const option_t app_opt[] =
 
   OPT_END
 };
+
+#include <argz.h>
+
+typedef struct unknown_t unknown_t;
+
+/* ------------------------------------------------------------------------- *
+ * unknown_t
+ * ------------------------------------------------------------------------- */
+
+struct unknown_t
+{
+  char  *un_data;
+  size_t un_size;
+};
+
+#define UNKNOWN_INIT { 0, 0 }
+
+
+/* ========================================================================= *
+ * unknown_t  --  methods
+ * ========================================================================= */
+
+/* ------------------------------------------------------------------------- *
+ * unknown_ctor
+ * ------------------------------------------------------------------------- */
+
+void 
+unknown_ctor(unknown_t *self)
+{
+  self->un_data = 0;
+  self->un_size = 0;
+}
+
+/* ------------------------------------------------------------------------- *
+ * unknown_dtor
+ * ------------------------------------------------------------------------- */
+
+void 
+unknown_dtor(unknown_t *self)
+{
+  free(self->un_data);
+}
+
+/* ------------------------------------------------------------------------- *
+ * unknown_create
+ * ------------------------------------------------------------------------- */
+
+unknown_t *
+unknown_create(void)
+{
+  unknown_t *self = calloc(1, sizeof *self);
+  unknown_ctor(self);
+  return self;
+}
+
+/* ------------------------------------------------------------------------- *
+ * unknown_delete
+ * ------------------------------------------------------------------------- */
+
+void 
+unknown_delete(unknown_t *self)
+{
+  if( self != 0 )
+  {
+    unknown_dtor(self);
+    free(self);
+  }
+}
+
+/* ------------------------------------------------------------------------- *
+ * unknown_delete_cb
+ * ------------------------------------------------------------------------- */
+
+void 
+unknown_delete_cb(void *self)
+{
+  unknown_delete(self);
+}
+
+/* ------------------------------------------------------------------------- *
+ * unknown_add
+ * ------------------------------------------------------------------------- */
+
+int
+unknown_add(unknown_t *self, const char *txt)
+{
+  char *entry = 0;
+  while( (entry = argz_next(self->un_data, self->un_size, entry)) != 0 )
+  {
+    if( !strcmp(entry, txt) )
+    {
+      return 0;
+    }
+  }
+  argz_add(&self->un_data, &self->un_size, txt);
+  return 1;
+}
 
 /* ========================================================================= *
  * utilities
@@ -847,8 +947,11 @@ meminfo_parse(meminfo_t *self, char *line)
   }
   else
   {
-    fprintf(stderr, "WTF: '%s' = '%s'\n", key, val);
-    assert( 0 );
+    static unknown_t unkn = UNKNOWN_INIT;
+    if( unknown_add(&unkn, key) )
+    {
+      fprintf(stderr, "%s: Unknown key: '%s' = '%s'\n", __FUNCTION__, key, val);
+    }
   }
 }
 
@@ -1102,8 +1205,11 @@ pidinfo_parse(pidinfo_t *self, char *line)
   }
   else
   {
-    fprintf(stderr, "%s: WTF: '%s' = '%s'\n", __FUNCTION__, key, val);
-    assert( 0 );
+    static unknown_t unkn = UNKNOWN_INIT;
+    if( unknown_add(&unkn, key) )
+    {
+      fprintf(stderr, "%s: Unknown key: '%s' = '%s'\n", __FUNCTION__, key, val);
+    }
   }
 }
 
