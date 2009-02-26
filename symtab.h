@@ -1,13 +1,13 @@
 /*
  * This file is part of sp-smaps
  *
- * Copyright (C) 2004-2007 Nokia Corporation. 
+ * Copyright (C) 2004-2007 Nokia Corporation.
  *
  * Contact: Eero Tamminen <eero.tamminen@nokia.com>
  *
  * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License 
- * version 2 as published by the Free Software Foundation. 
+ * modify it under the terms of the GNU General Public License
+ * version 2 as published by the Free Software Foundation.
  *
  * This program is distributed in the hope that it will be useful, but
  * WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -21,19 +21,18 @@
  *
  */
 
-
 /* ========================================================================= *
  * File: symtab.h
- * 
+ *
  * Author: Simo Piiroinen
- * 
+ *
  * -------------------------------------------------------------------------
- * 
+ *
  * History:
- * 
+ *
  * 18-Jan-2007 Simo Piiroinen
  * - some comments added
- * 
+ *
  * 2006-Nov-09 Simo Piiroinen
  * - initial version
  * ========================================================================= */
@@ -63,8 +62,8 @@ typedef struct symbol_t symbol_t;
 
 struct symbol_t
 {
-  char *symbol_key;	// symbol name
-  int   symbol_val;	// symbol value
+  char *symbol_key;     // symbol name
+  int   symbol_val;     // symbol value
 };
 
 void      symbol_ctor     (symbol_t *self, const char *key, int val);
@@ -72,7 +71,6 @@ void      symbol_dtor     (symbol_t *self);
 symbol_t *symbol_create   (const char *key, int val);
 void      symbol_delete   (symbol_t *self);
 void      symbol_delete_cb(void *self);
-
 
 /* ------------------------------------------------------------------------- *
  * symtab_t
@@ -95,8 +93,6 @@ void      symtab_set      (symtab_t *self, const char *str, int val);
 int       symtab_enumerate(symtab_t *self, const char *str);
 void      symtab_emit(symtab_t *self, FILE *file);
 void      symtab_renum(symtab_t *self);
-
-
 
 #ifdef __cplusplus
 };

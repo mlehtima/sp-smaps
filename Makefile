@@ -5,25 +5,24 @@
 # Contact: Eero Tamminen <eero.tamminen@nokia.com>
 #
 # This program is free software; you can redistribute it and/or
-# modify it under the terms of the GNU General Public License 
-# version 2 as published by the Free Software Foundation. 
+# modify it under the terms of the GNU General Public License
+# version 2 as published by the Free Software Foundation.
 #
 # This program is distributed in the hope that it will be useful, but
 # WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
 # General Public License for more details.
-# 
+#
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
 # 02110-1301 USA
 
-
 # =============================================================================
 # File: Makefile
-# 
+#
 # Author: Simo Piiroinen
-# 
+#
 # -----------------------------------------------------------------------------
 #
 # History:
@@ -91,7 +90,7 @@ endif
 # -----------------------------------------------------------------------------
 # Measurement Package Files
 # -----------------------------------------------------------------------------
- 
+
 BIN_MEASURE += sp_smaps_snapshot
 
 MAN_MEASURE += $(patsubst %,%.1.gz,$(BIN_MEASURE))
@@ -101,11 +100,11 @@ ALL_MEASURE += $(DLL_MEASURE) $(BIN_MEASURE) $(MAN_MEASURE)
 # -----------------------------------------------------------------------------
 # Normalization Package Files
 # -----------------------------------------------------------------------------
- 
+
 # -----------------------------------------------------------------------------
 # Visualization Package Files
 # -----------------------------------------------------------------------------
- 
+
 ## QUARANTINE BIN_VISUALIZE += sp_smaps_normalize
 ## QUARANTINE BIN_VISUALIZE += sp_smaps_analyze
 ## QUARANTINE BIN_VISUALIZE += sp_smaps_diff
@@ -175,7 +174,7 @@ INSTALL_HDR = $(if $1, install -m644 $1 $2/)
 install-%-man::
 	$(call INSTALL_DIR,$^,$(ROOT)$(MAN1))
 	$(call INSTALL_MAN,$^,$(ROOT)$(MAN1))
-	
+
 install-%-bin::
 	$(call INSTALL_DIR,$^,$(ROOT)$(BIN))
 	$(call INSTALL_BIN,$^,$(ROOT)$(BIN))
@@ -206,7 +205,7 @@ install-%-hdr::
 	gzip -9 -c <$< >$@
 %.1    : %
 	sp_gen_manfile -c ./$< -o $@
-	
+
 # updating static libraries
 lib%.a :
 	$(AR) ru $@ $^

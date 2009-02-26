@@ -1,13 +1,13 @@
 /*
  * This file is part of sp-smaps
  *
- * Copyright (C) 2004-2007 Nokia Corporation. 
+ * Copyright (C) 2004-2007 Nokia Corporation.
  *
  * Contact: Eero Tamminen <eero.tamminen@nokia.com>
  *
  * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License 
- * version 2 as published by the Free Software Foundation. 
+ * modify it under the terms of the GNU General Public License
+ * version 2 as published by the Free Software Foundation.
  *
  * This program is distributed in the hope that it will be useful, but
  * WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -23,11 +23,11 @@
 
 /* ========================================================================= *
  * File: snapshot.c
- * 
+ *
  * Author: Simo Piiroinen
- * 
+ *
  * -------------------------------------------------------------------------
- * 
+ *
  * History:
  *
  * 25-Feb-2009 Simo Piiroinen
@@ -36,14 +36,13 @@
  * 07-Apr-2006 Simo Piiroinen
  * - interleaves data from /proc/pid/status to output
  * - application name taken from /proc/pid/cmdline
- * 
+ *
  * 12-Sep-2005 Simo Piiroinen
  * - added "see also" section to usage info
- * 
+ *
  * 09-Sep-2005 Simo Piiroinen
  * - replaces the old shell script
  * ========================================================================= */
-
 
 /* ========================================================================= *
  * Include files
@@ -68,11 +67,9 @@
 #include <libsysperf/msg.h>
 #include <libsysperf/argvec.h>
 
-
 /* ========================================================================= *
  * Configuration
  * ========================================================================= */
-
 
 /* ------------------------------------------------------------------------- *
  * Tool Version
@@ -97,21 +94,21 @@ static const manual_t app_man[]=
           )
   MAN_ADD("DESCRIPTION",
           "This tool generates snapshot of /proc/pid/smaps information\n"
-	  "for all processes in the system.\n"
-	  "\n"
-	  "The smaps data from all processes in concatenated into the\n"
-	  "output. Additionally, some data from /proc/pid/status is\n"
-	  "also included for each process to help postprocessing tools\n"
-	  "such as sp_smaps_analyze to perform additional tasks like\n"
-	  "recognizing multiple threads belonging to one application\n"
-	  "in order to provide more accurate memory usage statistics.\n"
-	  "\n"
-	  "When run as root, it's possible to request this tool to\n"
-	  "boost its priority to not-nice-at-all realtime scheduling which\n"
-	  "hopefully yields more stable results for threads of MT apps.\n"
-	  "However, this can be cause instability at least when the command\n"
-	  "is run from a serial console, so this behavior is optional\n"
-	  "rather than the default.\n"
+          "for all processes in the system.\n"
+          "\n"
+          "The smaps data from all processes in concatenated into the\n"
+          "output. Additionally, some data from /proc/pid/status is\n"
+          "also included for each process to help postprocessing tools\n"
+          "such as sp_smaps_analyze to perform additional tasks like\n"
+          "recognizing multiple threads belonging to one application\n"
+          "in order to provide more accurate memory usage statistics.\n"
+          "\n"
+          "When run as root, it's possible to request this tool to\n"
+          "boost its priority to not-nice-at-all realtime scheduling which\n"
+          "hopefully yields more stable results for threads of MT apps.\n"
+          "However, this can be cause instability at least when the command\n"
+          "is run from a serial console, so this behavior is optional\n"
+          "rather than the default.\n"
           )
   MAN_ADD("OPTIONS", 0)
 
@@ -119,20 +116,20 @@ static const manual_t app_man[]=
           "% "TOOL_NAME" > after_boot.cap\n"
           "\n"
           "  Writes output fairly similar to 'head -2000 /proc/[1-9]*/smaps' to\n"
-	  "  logfile 'after_boot.cap'. (but with some additional data per process)\n"
-	  "\n"
-	  "% "TOOL_NAME" -fstatus -ostatus.log\n"
-	  "\n"
-	  "  Writes content of all proc/pid/status files to logfile status.log\n"
+          "  logfile 'after_boot.cap'. (but with some additional data per process)\n"
+          "\n"
+          "% "TOOL_NAME" -fstatus -ostatus.log\n"
+          "\n"
+          "  Writes content of all proc/pid/status files to logfile status.log\n"
           )
   MAN_ADD("COPYRIGHT",
           "Copyright (C) 2004-2007 Nokia Corporation.\n\n"
-	  "This is free software.  You may redistribute copies of it under the\n"
-	  "terms of the GNU General Public License v2 included with the software.\n"
-	  "There is NO WARRANTY, to the extent permitted by law.\n"
+          "This is free software.  You may redistribute copies of it under the\n"
+          "terms of the GNU General Public License v2 included with the software.\n"
+          "There is NO WARRANTY, to the extent permitted by law.\n"
           )
   MAN_ADD("SEE ALSO",
-	  "sp_smaps_normalize (1), sp_smaps_analyze (1), sp_smaps_diff (1)\n"
+          "sp_smaps_normalize (1), sp_smaps_analyze (1), sp_smaps_diff (1)\n"
           "\n"
           )
   MAN_END
@@ -196,17 +193,17 @@ static const option_t app_opt[] =
           "Output file to use instead of stdout.\n" ),
 
   OPT_ADD(opt_realtime,
-	  "r", "realtime", 0,
-	  "Use realtime priority (needs to be run as root for this)" ),
+          "r", "realtime", 0,
+          "Use realtime priority (needs to be run as root for this)" ),
 
 // QUARANTINE   OPT_ADD(opt_no_header,
 // QUARANTINE           0, "no-header", 0,
 // QUARANTINE           "Omit header rows from Output.\n" ),
-// QUARANTINE 
+// QUARANTINE
 // QUARANTINE   OPT_ADD(opt_no_labels,
 // QUARANTINE           0, "no-labels", 0,
 // QUARANTINE           "Omit label row from Output.\n" ),
-// QUARANTINE 
+// QUARANTINE
 // QUARANTINE   OPT_ADD(opt_data_only,
 // QUARANTINE           0, "data-only", 0,
 // QUARANTINE           "Output only data rows.\n" ),
@@ -219,14 +216,12 @@ static const option_t app_opt[] =
  * ------------------------------------------------------------------------- */
 
 #define RXBUFF ( 8<<10) /* Should be large enough to allow reading typical
-			 * /proc/pid/file in one go. Read buffers are taken
-			 * from stack so avoid excessive sizes... */
+                         * /proc/pid/file in one go. Read buffers are taken
+                         * from stack so avoid excessive sizes... */
 
 #define TXBUFF (64<<10) /* All output - except for the final write - will be
-			 * done in this sized blocks -> make it multiple of
-			 * file system block size. */
-
-
+                         * done in this sized blocks -> make it multiple of
+                         * file system block size. */
 
 static const char *pidfile = PIDFILE;
 static const char *outfile = 0;
@@ -243,7 +238,7 @@ static void use_maximum_priority(void)
 {
   /* - - - - - - - - - - - - - - - - - - - *
    * Purpose of this priority fiddling...
-   * 
+   *
    * By making it higly unlikely that other
    * processes get execution time while we
    * are generating the snapshot we make it
@@ -252,8 +247,7 @@ static void use_maximum_priority(void)
    * values -> allows us to recognize them
    * as threads in post processing.
    * - - - - - - - - - - - - - - - - - - - */
-  
-  
+
   /* - - - - - - - - - - - - - - - - - - - *
    * Nice -> as bad as possible
    * - - - - - - - - - - - - - - - - - - - */
@@ -267,21 +261,21 @@ static void use_maximum_priority(void)
     int new = getpriority(PRIO_PROCESS, 0);
     msg_progress("nice  priority: %d -> %d\n", old, new);
   }
-  
+
   /* - - - - - - - - - - - - - - - - - - - *
    * Scheduling -> RT FIFO policy
    * - - - - - - - - - - - - - - - - - - - */
 
   {
     struct sched_param old,new;
-    
+
     if( sched_getparam(0, &old) == -1 )
     {
       msg_error("unable to get currect scheduling\n");
     }
     new = old;
     new.sched_priority = sched_get_priority_max(SCHED_FIFO);
-    
+
     if( sched_setscheduler(0, SCHED_FIFO, &new) == -1 )
     {
       msg_error("unable to set scheduling\n");
@@ -294,10 +288,10 @@ static void use_maximum_priority(void)
     {
       msg_error("unable to get changed scheduling\n");
     }
-    
+
     msg_progress("sched priority: %d -> %d\n",
-		 old.sched_priority,
-		 new.sched_priority);
+                 old.sched_priority,
+                 new.sched_priority);
   }
 }
 
@@ -313,17 +307,17 @@ static void write_all_or_exit(int fd, const void *data, size_t size)
   while( pos < end )
   {
     int put = write(fd, pos, end-pos);
-    
+
     if( put == -1 )
     {
       switch( errno )
       {
       case EAGAIN:
       case EINTR:
-	continue;
-	
+        continue;
+
       default:
-	msg_fatal("write error: %s\n", strerror(errno));
+        msg_fatal("write error: %s\n", strerror(errno));
       }
     }
     pos += put;
@@ -338,21 +332,21 @@ static void write_all_or_exit(int fd, const void *data, size_t size)
 // QUARANTINE {
 // QUARANTINE   char  *pos = data;
 // QUARANTINE   char  *end = pos + size;
-// QUARANTINE   
+// QUARANTINE
 // QUARANTINE   while( pos < end )
 // QUARANTINE   {
 // QUARANTINE     int got = read(fd, pos, end-pos);
-// QUARANTINE 
+// QUARANTINE
 // QUARANTINE     if( got == -1 )
 // QUARANTINE     {
 // QUARANTINE       switch( errno )
 // QUARANTINE       {
 // QUARANTINE       case EAGAIN:
 // QUARANTINE       case EINTR:
-// QUARANTINE 	continue;
-// QUARANTINE 	
+// QUARANTINE   continue;
+// QUARANTINE
 // QUARANTINE       default:
-// QUARANTINE 	msg_fatal("write error: %s\n", strerror(errno));
+// QUARANTINE   msg_fatal("write error: %s\n", strerror(errno));
 // QUARANTINE       }
 // QUARANTINE     }
 // QUARANTINE     if( got == 0 )
@@ -361,11 +355,10 @@ static void write_all_or_exit(int fd, const void *data, size_t size)
 // QUARANTINE     }
 // QUARANTINE     pos += got;
 // QUARANTINE   }
-// QUARANTINE   
+// QUARANTINE
 // QUARANTINE   return pos - (char*)data;
 // QUARANTINE }
 
-
 /* ========================================================================= *
  * Buffered Output
  * ========================================================================= */
@@ -390,22 +383,22 @@ static size_t output_space(int force_flush)
     {
       if( output_fd == -1 )
       {
-	output_fd = STDOUT_FILENO;
-	
-	if( outfile != 0 )
-	{
-	  int fd = open(outfile, O_WRONLY|O_CREAT|O_TRUNC, 0666);
-	  if( fd == -1 )
-	  {
-	    msg_error("%s: %s\n(using stdout)", outfile, strerror(errno));
-	  }
-	  else
-	  {
-	    output_fd = fd;
-	  }
-	}
+        output_fd = STDOUT_FILENO;
+
+        if( outfile != 0 )
+        {
+          int fd = open(outfile, O_WRONLY|O_CREAT|O_TRUNC, 0666);
+          if( fd == -1 )
+          {
+            msg_error("%s: %s\n(using stdout)", outfile, strerror(errno));
+          }
+          else
+          {
+            output_fd = fd;
+          }
+        }
       }
-      
+
       write_all_or_exit(output_fd, output_buff, output_offs);
       output_offs = 0;
     }
@@ -421,16 +414,16 @@ static void output_raw(const void *data, size_t size)
 {
   const char *pos = data;
   const char *end = pos + size;
-  
+
   while( pos < end )
   {
     size_t count = end - pos;
     size_t space = output_space(0);
-    
+
     if( count > space ) count = space;
-    
+
     memcpy(output_buff + output_offs, pos, count);
-    
+
     output_offs += count;
     pos += count;
   }
@@ -444,14 +437,14 @@ static void output_fmt(const char *fmt, ...)
 {
   char temp[1<<10];
   char *work = temp;
-  
+
   va_list va;
   size_t  n;
-  
+
   va_start(va, fmt);
   n = vsnprintf(work, sizeof temp, fmt, va);
   va_end(va);
-  
+
   if( n > sizeof temp )
   {
     work = alloca(n);
@@ -459,7 +452,7 @@ static void output_fmt(const char *fmt, ...)
     vsnprintf(work, n, fmt, va);
     va_end(va);
   }
-  
+
   output_raw(work, n);
 }
 
@@ -471,41 +464,41 @@ static void output_file(const char *path)
 {
   char temp[RXBUFF];
   int file = open(path,O_RDONLY);
-  
+
   if( file == -1 )
   {
     msg_error("%s: %s\n", path, strerror(errno));
     goto cleanup;
   }
-  
+
   for( ;; )
   {
     int rc = read(file, temp, sizeof temp);
-    
+
     if( rc == 0 )
     {
       break;
     }
-    
+
     if( rc == -1 )
     {
       switch( errno )
       {
       case EAGAIN:
       case EINTR:
-	continue;
-	
+        continue;
+
       default:
-	perror(path);
-	goto cleanup;
+        perror(path);
+        goto cleanup;
       }
     }
-    
+
     output_raw(temp, rc);
   }
 
   cleanup:
-  
+
   if( file != -1 ) close(file);
 }
 
@@ -515,28 +508,28 @@ static void output_file(const char *path)
 
 static size_t input_file(const char *path, void *pdata, size_t *psize)
 {
-  
+
   size_t  done = 0;
   char   *data = *(char **)pdata;
   size_t  size = *psize;
   int     file = -1;
-  
+
   if( (file = open(path,O_RDONLY)) == -1 )
   {
     msg_error("%s: %s\n", path, strerror(errno));
     goto cleanup;
   }
-  
+
   for( ;; )
   {
     if( size - done < 0x1000 )
     {
       if( (data = realloc(data, (size += 0x1000))) == 0 )
       {
-	msg_fatal("%s: %s\n", path, strerror(errno));
+        msg_fatal("%s: %s\n", path, strerror(errno));
       }
     }
-    
+
     ssize_t rc = read(file, data + done, size - done);
 
     if( rc == -1 )
@@ -545,29 +538,29 @@ static size_t input_file(const char *path, void *pdata, size_t *psize)
       {
       case EAGAIN:
       case EINTR:
-	continue;
-	
+        continue;
+
       default:
-	msg_error("%s: %s\n", path, strerror(errno));
-	goto cleanup;
+        msg_error("%s: %s\n", path, strerror(errno));
+        goto cleanup;
       }
     }
-    
+
     if( rc == 0 )
     {
       break;
     }
-    
+
     done += (size_t)rc;
   }
 
   cleanup:
-  
+
   if( file != -1 )
   {
     close(file);
   }
-  
+
   if( done == size )
   {
     if( (data = realloc(data, (size += 1))) == 0 )
@@ -576,10 +569,10 @@ static size_t input_file(const char *path, void *pdata, size_t *psize)
     }
   }
   data[done] = 0;
-  
+
   *(char **)pdata = data;
   *psize = size;
-  
+
   return done;
 }
 
@@ -587,14 +580,13 @@ static size_t input_file(const char *path, void *pdata, size_t *psize)
 #define wc(c) ((c)>0 && (c)<33)
 #define bc(c) (uc(c)>32)
 
-
 static char *strip(char *str)
 {
   char *src = str;
   char *dst = str;
-  
+
   while( wc(*src) ) ++src;
-  
+
   for( ;; )
   {
     if( bc(*src) )
@@ -604,9 +596,9 @@ static char *strip(char *str)
     }
 
     while( wc(*src) ) ++src;
-    
+
     if( *src == 0 ) break;
-    
+
     *dst++ = ' ';
   }
   *dst = 0;
@@ -623,7 +615,7 @@ static char *token(char **ppos, int sep)
   }
 
   char *end = beg;
-  
+
   for( ; *end; ++end )
   {
     //printf("??? '%c' vs '%c'\n", (sep<0) ? '?' : sep, *end);
@@ -649,28 +641,26 @@ typedef struct proc_pid_status_t {
   char *VmExe;
   char *VmLib;
   char *VmPTE;
-  
-  
+
 } proc_pid_status_t;
 
 static void
 proc_pid_status_parse(proc_pid_status_t *self, char *data)
 {
   static char empty[1] = "";
-  
+
   memset(self, 0, sizeof *self);
-  
+
   self->Name    = empty;
   self->Pid     = "0";
   self->PPid    = "0";
   self->Threads = "0";
-  
-  
+
   while( *data )
   {
     char *row = token(&data, '\n');
     char *key = token(&row, ':');
-    
+
     if( !strcmp(key, "Name") )
     {
       self->Name = strip(row);
@@ -695,20 +685,19 @@ proc_pid_status_parse(proc_pid_status_t *self, char *data)
  * fix_command_name  --  filter out funny characters from command line
  * ------------------------------------------------------------------------- */
 
-
 static char *fix_command_name(char *name)
 {
   char *s = name;
   char *d = name;
-  
+
   for( ; *s; ++s )
   {
     switch( *s )
     {
 // QUARANTINE     case '/':
-// QUARANTINE       d = name; 
+// QUARANTINE       d = name;
 // QUARANTINE       break;
-      
+
     case 'a' ... 'z':
     case 'A' ... 'Z':
     case '0' ... '9':
@@ -718,7 +707,7 @@ static char *fix_command_name(char *name)
     case '.':
       *d++ = *s;
       break;
-      
+
     default:
       *d++ = '_';
       break;
@@ -738,7 +727,7 @@ static char *get_command_name(const char *pid, char **pname, size_t *psize)
   char   path[256];
   size_t size = *psize;
   char  *name = *pname;
-  
+
   if( size < 4096 )
   {
     size = 4096;
@@ -780,19 +769,19 @@ static char *get_command_name(const char *pid, char **pname, size_t *psize)
       *name = 0;
     }
   }
-  
+
   /* - - - - - - - - - - - - - - - - - - - *
    * /proc/pid/status -> "(command name)"
    * - - - - - - - - - - - - - - - - - - - */
-  
+
   if( *name == 0 )
   {
     snprintf(path, sizeof path, "/proc/%s/stat", pid);
     input_file(path, &name, &size);
-    
+
     char *s = strchr(name, '(');
     char *e = strrchr(name, ')');
-    
+
     if( s && e && s < e )
     {
       *e = 0;
@@ -812,7 +801,7 @@ static char *get_command_name(const char *pid, char **pname, size_t *psize)
   {
     snprintf(path, sizeof path, "/proc/%s/status", pid);
     input_file(path, &name, &size);
-    
+
     char *s = strstr(name, "Name:");
     if( s != 0 )
     {
@@ -827,15 +816,14 @@ static char *get_command_name(const char *pid, char **pname, size_t *psize)
       *name = 0;
     }
   }
-  
+
   *pname = name;
   *psize = size;
-  
+
   return fix_command_name(name);
 }
 #endif
 
-
 /* ========================================================================= *
  * Snapshot from /proc/pid/smaps information
  * ========================================================================= */
@@ -852,17 +840,17 @@ static int snapshot_all(void)
   size_t  cmdline_size = 0;
   char    exe[256];
   proc_pid_status_t status;
-  
+
   static const char root[] = "/proc";
-  
+
   int  err = -1;
   DIR *dir = 0;
   int  cnt = 0;
-  
+
   struct dirent *de;
   char path[256];
   char *name = NULL;
-  
+
   if( (dir = opendir(root)) == 0 )
   {
     perror(root);
@@ -895,51 +883,49 @@ static int snapshot_all(void)
       snprintf(path, sizeof path, "%s/%s/%s", root, de->d_name,"status");
       input_file(path, &status_text, &status_size);
       proc_pid_status_parse(&status, status_text);
-      
-      
-      
+
       if( cnt++ != 0 )
       {
-	output_raw("\n",1);
+        output_raw("\n",1);
       }
 
       snprintf(path, sizeof path, "%s/%s/%s", root, de->d_name,pidfile);
       output_fmt("==> %s <==\n", path);
 
       /* Avoid feeding basename cases that might confuse it, such as
-	 sshd: pts/2 */
+         sshd: pts/2 */
 
       if ( *(cmdline_text) == '/' )
       {
-	name = strip(basename(cmdline_text));
+        name = strip(basename(cmdline_text));
       }
       else if ( *(cmdline_text) == '.' )
       {
-	char *iter = cmdline_text;
-	while ( *(iter)+1 != '\0' && *(iter)+1 == '.' )
-	{
-	  iter++;
-	}
-	if ( *(iter) == '/' )
-	{
-	  name = strip(basename(cmdline_text));
-	}
+        char *iter = cmdline_text;
+        while ( *(iter)+1 != '\0' && *(iter)+1 == '.' )
+        {
+          iter++;
+        }
+        if ( *(iter) == '/' )
+        {
+          name = strip(basename(cmdline_text));
+        }
       }
       else
       {
-	name = strip(cmdline_text);
+        name = strip(cmdline_text);
       }
 
       if( name == 0 || *name == 0 )
       {
-	if( *(name = strip(basename(exe))) == 0 )
-	{
-	  name = strip(status.Name);
-	}
+        if( *(name = strip(basename(exe))) == 0 )
+        {
+          name = strip(status.Name);
+        }
       }
 
       output_fmt("#Name: %s\n", *name ? fix_command_name(name): "unknown");
-      
+
 #define X(v) if( status.v ) output_fmt("#%s: %s\n",#v,status.v);
       X(Pid)
       X(PPid)
@@ -953,26 +939,25 @@ static int snapshot_all(void)
       X(VmLib)
       X(VmPTE)
 #undef X
-      
+
       output_file(path);
     }
   }
-  
+
   err = 0;
-  
+
   cleanup:
-  
+
   if( dir != 0 ) closedir(dir);
 
   output_space(1);
-  
+
   free(cmdline_text);
   free(status_text);
-  
+
   return err;
 }
 
-
 /* ========================================================================= *
  * Main Entry Point
  * ========================================================================= */
@@ -1022,20 +1007,19 @@ int main(int ac, char **av)
     case opt_realtime:
       if( geteuid() == 0 )
       {
-	msg_progress("Attempting to adjust priority/scheduling.\n");
-	use_maximum_priority();
+        msg_progress("Attempting to adjust priority/scheduling.\n");
+        use_maximum_priority();
       }
       else
       {
-	msg_warning("Realtime mode is only available when run as root.\n");
-	exit(1);
+        msg_warning("Realtime mode is only available when run as root.\n");
+        exit(1);
       }
       break;
     }
   }
- 
+
   argvec_delete(args);
-  
+
   return snapshot_all() ? EXIT_FAILURE : EXIT_SUCCESS;
 }
-

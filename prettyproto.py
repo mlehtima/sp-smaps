@@ -87,8 +87,6 @@ if __name__ == "__main__":
 
         m[k].append((t,p,n,a))
 
-
-
 ## QUARANTINE     m = m.items()
 ## QUARANTINE     m.sort()
 ## QUARANTINE     for k,v in m:
@@ -105,5 +103,3 @@ if __name__ == "__main__":
 
         for t,p,n,a in v:
             print "%-*s%-*s%-*s%s" % (i,t,k,p,l,n,a)
-
-

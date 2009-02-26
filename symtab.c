@@ -1,13 +1,13 @@
 /*
  * This file is part of sp-smaps
  *
- * Copyright (C) 2004-2007 Nokia Corporation. 
+ * Copyright (C) 2004-2007 Nokia Corporation.
  *
  * Contact: Eero Tamminen <eero.tamminen@nokia.com>
  *
  * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License 
- * version 2 as published by the Free Software Foundation. 
+ * modify it under the terms of the GNU General Public License
+ * version 2 as published by the Free Software Foundation.
  *
  * This program is distributed in the hope that it will be useful, but
  * WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -23,16 +23,16 @@
 
 /* ========================================================================= *
  * File: symtab.c
- * 
+ *
  * Author: Simo Piiroinen
- * 
+ *
  * -------------------------------------------------------------------------
- * 
+ *
  * History:
- * 
+ *
  * 18-Jan-2007 Simo Piiroinen
  * - some comments added
- * 
+ *
  * 2006-Nov-09 Simo Piiroinen
  * - initial version
  * ========================================================================= */
@@ -42,7 +42,6 @@
 
 #include "symtab.h"
 
-
 /* ========================================================================= *
  * symbol_t  --  methods
  * ========================================================================= */
@@ -51,7 +50,7 @@
  * symbol_ctor  --  constructor
  * ------------------------------------------------------------------------- */
 
-void 
+void
 symbol_ctor(symbol_t *self, const char *key, int val)
 {
   self->symbol_key = strdup(key);
@@ -62,7 +61,7 @@ symbol_ctor(symbol_t *self, const char *key, int val)
  * symbol_dtor  --  destructor
  * ------------------------------------------------------------------------- */
 
-void 
+void
 symbol_dtor(symbol_t *self)
 {
   free(self->symbol_key);
@@ -84,7 +83,7 @@ symbol_create(const char *key, int val)
  * symbol_delete  --  delete method
  * ------------------------------------------------------------------------- */
 
-void 
+void
 symbol_delete(symbol_t *self)
 {
   if( self != 0 )
@@ -98,14 +97,12 @@ symbol_delete(symbol_t *self)
  * symbol_delete_cb  --  delete callback for containers
  * ------------------------------------------------------------------------- */
 
-void 
+void
 symbol_delete_cb(void *self)
 {
   symbol_delete(self);
 }
 
-
-
 /* ========================================================================= *
  * symtab_t  --  methods
  * ========================================================================= */
@@ -114,20 +111,20 @@ symbol_delete_cb(void *self)
  * symtab_ctor
  * ------------------------------------------------------------------------- */
 
-void 
+void
 symtab_ctor(symtab_t *self)
 {
   self->symtab_count = 0;
   self->symtab_alloc = 256;
-  self->symtab_entry = malloc(self->symtab_alloc * 
-			      sizeof *self->symtab_entry);
+  self->symtab_entry = malloc(self->symtab_alloc *
+                              sizeof *self->symtab_entry);
 }
 
 /* ------------------------------------------------------------------------- *
  * symtab_dtor
  * ------------------------------------------------------------------------- */
 
-void 
+void
 symtab_dtor(symtab_t *self)
 {
   for( size_t i = 0; i < self->symtab_count; ++i )
@@ -153,7 +150,7 @@ symtab_create(void)
  * symtab_delete
  * ------------------------------------------------------------------------- */
 
-void 
+void
 symtab_delete(symtab_t *self)
 {
   if( self != 0 )
@@ -167,7 +164,7 @@ symtab_delete(symtab_t *self)
  * symtab_delete_cb  --  delete callback for containers
  * ------------------------------------------------------------------------- */
 
-void 
+void
 symtab_delete_cb(void *self)
 {
   symtab_delete(self);
@@ -182,7 +179,7 @@ symtab_get(symtab_t *self, const char *str, int def)
 {
   size_t lo = 0;
   size_t hi = self->symtab_count;
-  
+
   while( lo < hi )
   {
     size_t i = (lo + hi)/2;
@@ -205,19 +202,19 @@ symtab_set(symtab_t *self, const char *str, int val)
   size_t lo = 0;
   size_t hi = self->symtab_count;
   symbol_t *s = 0;
-  
+
   for( ;; )
   {
     if( lo == hi )
     {
       if( self->symtab_count == self->symtab_alloc )
       {
-	self->symtab_alloc *= 2;
-	self->symtab_entry = realloc(self->symtab_entry,
-				      self->symtab_alloc * 
-				      sizeof *self->symtab_entry);
+        self->symtab_alloc *= 2;
+        self->symtab_entry = realloc(self->symtab_entry,
+                                      self->symtab_alloc *
+                                      sizeof *self->symtab_entry);
       }
-      
+
       s = &self->symtab_entry[lo];
       memmove(s+1, s+0, (self->symtab_count - lo) * sizeof *s);
       self->symtab_count += 1;
@@ -247,17 +244,17 @@ symtab_enumerate(symtab_t *self, const char *str)
   size_t lo = 0;
   size_t hi = self->symtab_count;
   symbol_t *s = 0;
-  
+
   for( ;; )
   {
     if( lo == hi )
     {
       if( self->symtab_count == self->symtab_alloc )
       {
-	self->symtab_alloc *= 2;
-	self->symtab_entry = realloc(self->symtab_entry,
-				      self->symtab_alloc * 
-				      sizeof *self->symtab_entry);
+        self->symtab_alloc *= 2;
+        self->symtab_entry = realloc(self->symtab_entry,
+                                      self->symtab_alloc *
+                                      sizeof *self->symtab_entry);
       }
       s = &self->symtab_entry[lo];
       memmove(s+1, s+0, (self->symtab_count - lo) * sizeof *s);
