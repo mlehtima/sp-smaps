@@ -28,6 +28,9 @@
 #
 # History:
 #
+# 25-Feb-2009 Simo Piiroinen
+# - fixed changelog source list
+#
 # 18-Jan-2007 Simo Piiroinen
 # - sp_smaps_filter added to package
 #
@@ -157,7 +160,7 @@ tree:: install
 	tree $(ROOT)
 
 changelog:
-	sp_gen_changelog >$@ *.c *.py *.sh Makefile
+	sp_gen_changelog >$@ *.c *.py Makefile
 
 # -----------------------------------------------------------------------------
 # Installation Macros & Rules
