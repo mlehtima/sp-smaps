@@ -4226,7 +4226,20 @@ static void
 smapsfilt_handle_arguments(smapsfilt_t *self, int ac, char **av)
 {
   argvec_t *args = argvec_create(ac, av, app_opt, app_man);
+  const char *name = basename(av[0]);
 
+  if (!strcmp(name, "sp_smaps_flatten")) {
+	  self->smapsfilt_filtmode = FM_FLATTEN;
+  } else if (!strcmp(name, "sp_smaps_normalize")) {
+	  self->smapsfilt_filtmode = FM_NORMALIZE;
+  } else if (!strcmp(name, "sp_smaps_analyze")) {
+	  self->smapsfilt_filtmode = FM_ANALYZE;
+  } else if (!strcmp(name, "sp_smaps_appvals")) {
+	  self->smapsfilt_filtmode = FM_APPVALS;
+  } else if (!strcmp(name, "sp_smaps_diff")) {
+	  self->smapsfilt_filtmode = FM_DIFF;
+  }
+  
   while( !argvec_done(args) )
   {
     int       tag  = 0;

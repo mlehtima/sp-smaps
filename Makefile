@@ -109,8 +109,9 @@ ALL_MEASURE += $(DLL_MEASURE) $(BIN_MEASURE) $(MAN_MEASURE)
 ## QUARANTINE BIN_VISUALIZE += sp_smaps_analyze
 ## QUARANTINE BIN_VISUALIZE += sp_smaps_diff
 
-BIN_VISUALIZE += sp_smaps_analyze
+BIN_VISUALIZE += sp_smaps_filter
 
+LNK_VISUALIZE += sp_smaps_analyze
 LNK_VISUALIZE += sp_smaps_flatten
 LNK_VISUALIZE += sp_smaps_normalize
 LNK_VISUALIZE += sp_smaps_appvals
@@ -118,7 +119,6 @@ LNK_VISUALIZE += sp_smaps_diff
 
 MAN_VISUALIZE += $(patsubst %,%.1.gz,$(BIN_VISUALIZE))
 MAN_VISUALIZE += $(patsubst %,%.1.gz,$(DLL_VISUALIZE))
-MAN_VISUALIZE += $(patsubst %,%.1.gz,$(LNK_VISUALIZE))
 
 ALL_VISUALIZE += $(DLL_VISUALIZE) $(BIN_VISUALIZE) $(MAN_VISUALIZE)
 ALL_VISUALIZE += $(LNK_VISUALIZE)
@@ -242,13 +242,11 @@ install-visualize-lnk:: $(addprefix $(ROOT)$(BIN)/,$(LNK_VISUALIZE))
 sp_smaps_snapshot : LDLIBS += -lsysperf
 sp_smaps_snapshot : sp_smaps_snapshot.o
 
-$(addprefix $(ROOT)$(BIN)/,$(LNK_VISUALIZE)): sp_smaps_analyze
-	$(RM) $@
-	ln -s $< $@
+$(addprefix $(ROOT)$(BIN)/,$(LNK_VISUALIZE)): sp_smaps_filter
+	ln -fs $< $@
 
-$(LNK_VISUALIZE): sp_smaps_analyze
-	$(RM) $@
-	ln -s $< $@
+$(LNK_VISUALIZE): sp_smaps_filter
+	ln -fs $< $@
 
 # -----------------------------------------------------------------------------
 # Dependency Scanning
@@ -267,5 +265,3 @@ depend:
 
 sp_smaps_filter : LDLIBS += -lsysperf -lm
 sp_smaps_filter : sp_smaps_filter.o symtab.o
-
-## QUARANTINE build:: sp_smaps_filter

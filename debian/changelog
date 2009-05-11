@@ -1,3 +1,9 @@
+sp-smaps (0.2.0) unstable; urgency=low
+
+  * Switch to sp_smaps_filter written in C. Fixes: NB#103757
+
+ -- Kiryl Shutsemau <kiryl.shutsemau@nokia.com>  Mon, 11 May 2009 16:50:57 +0200
+
 sp-smaps (0.1.8) unstable; urgency=low
 
   * Fixed incorrectly named reference to another manual page in
