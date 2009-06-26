@@ -1,3 +1,13 @@
+sp-smaps (0.2.1) unstable; urgency=low
+
+  * Ignore & give a warning for smaps entries that do not match "==>
+    /proc/[0-9]+/smaps <==", instead of dying in assert. This fixes
+    cases where we have "==> /proc/self/smaps <==". Fixes: NB#124672
+  * Dont try to remove threads from old style capture files.
+
+
+ -- Kiryl Shutsemau <kiryl.shutsemau@nokia.com>  Fri, 26 Jun 2009 12:04:48 +0200
+
 sp-smaps (0.2.0) unstable; urgency=low
 
   * Switch to sp_smaps_filter written in C. Fixes: NB#103757

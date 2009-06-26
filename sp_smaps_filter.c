@@ -30,6 +30,12 @@
  *
  * History:
  *
+ * 25-Jun-2009
+ * - Ignore & give a warning for smaps entries that do not match
+ *   "==> /proc/[0-9]+/smaps <==", instead of dying in assert. This fixes cases
+ *   where we have "==> /proc/self/smaps <==".
+ * - Dont try to remove threads from old style capture files.
+ *
  * 25-Feb-2009 Simo Piiroinen
  * - lists unrecognized keys without exiting
  *
@@ -1741,6 +1747,7 @@ smapssnap_load_cap(smapssnap_t *self, const char *path)
       proc = 0;
       mapp = 0;
 
+      char *backup = strdup(data); // save a copy for good error messages
       char *pos = data;
 
       while( *pos && strcmp(slice(&pos, '/'), "proc") ) { }
@@ -1751,8 +1758,10 @@ smapssnap_load_cap(smapssnap_t *self, const char *path)
       }
       else
       {
-        assert( 0 );
+        fprintf(stderr, "%s(): ignoring: %s\n", __FUNCTION__, backup);
       }
+
+      free(backup);
     }
     else if( *data == '#' )
     {
@@ -1761,27 +1770,30 @@ smapssnap_load_cap(smapssnap_t *self, const char *path)
       // #PPid: 0
       // #Threads: 1
 
-      assert( proc != 0 );
-      pidinfo_parse(&proc->smapsproc_pid, data+1);
-      self->smapssnap_format = SNAPFORMAT_NEW;
+      if (proc)
+      {
+        pidinfo_parse(&proc->smapsproc_pid, data+1);
+        self->smapssnap_format = SNAPFORMAT_NEW;
+      }
     }
     else if( hexterm(data) == '-' )
     {
       // 08048000-08051000 r-xp 00000000 03:03 2060370    /sbin/init
 
-      assert( proc != 0 );
+      if (proc)
+      {
+        char *pos = data;
+        unsigned head = strtoul(slice(&pos, '-'), 0, 16);
+        unsigned tail = strtoul(slice(&pos,  -1), 0, 16);
+        char    *prot = slice(&pos,  -1);
+        unsigned offs = strtoul(slice(&pos,  -1), 0, 16);
+        char    *node = slice(&pos,  -1);
+        unsigned flgs = strtoul(slice(&pos,  -1), 0, 10);
+        char    *path = slice(&pos,  0);
 
-      char *pos = data;
-      unsigned head = strtoul(slice(&pos, '-'), 0, 16);
-      unsigned tail = strtoul(slice(&pos,  -1), 0, 16);
-      char    *prot = slice(&pos,  -1);
-      unsigned offs = strtoul(slice(&pos,  -1), 0, 16);
-      char    *node = slice(&pos,  -1);
-      unsigned flgs = strtoul(slice(&pos,  -1), 0, 10);
-      char    *path = slice(&pos,  0);
-
-      mapp = smapsproc_add_mapping(proc, head, tail, prot,
-                                   offs, node, flgs, path);
+        mapp = smapsproc_add_mapping(proc, head, tail, prot,
+                                     offs, node, flgs, path);
+      }
     }
     else
     {
@@ -1792,8 +1804,10 @@ smapssnap_load_cap(smapssnap_t *self, const char *path)
       // Private_Clean:       36 kB
       // Private_Dirty:        0 kB
 
-      assert( mapp != 0 );
-      meminfo_parse(&mapp->smapsmapp_mem, data);
+      if (mapp)
+      {
+        meminfo_parse(&mapp->smapsmapp_mem, data);
+      }
     }
   }
 
@@ -4340,7 +4354,11 @@ smapsfilt_load_inputs(smapsfilt_t *self)
 // QUARANTINE     smapssnap_save_csv(snap, "out1.csv");
 
     smapssnap_create_hierarchy(snap);
-    smapssnap_collapse_threads(snap);
+    if (snap->smapssnap_format == SNAPFORMAT_OLD) {
+      fprintf(stderr, "Warning: %s: oldstyle capture file, not removing threads.\n", path);
+    } else {
+      smapssnap_collapse_threads(snap);
+    }
 
 // QUARANTINE     smapssnap_save_cap(snap, "out2.cap");
 // QUARANTINE     smapssnap_save_csv(snap, "out2.csv");
