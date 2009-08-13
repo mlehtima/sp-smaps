@@ -1,3 +1,10 @@
+sp-smaps (0.2.2) unstable; urgency=low
+
+  * Added support of the new smaps fields - pss, swap, referenced.
+  * Fixes: NB#124861
+
+ -- Stanislavs Lielausis <ext-stanislavs.3.lielausis@nokia.com>  Thu, 20 Aug 2009 14:35:22 +0300
+
 sp-smaps (0.2.1) unstable; urgency=low
 
   * Ignore & give a warning for smaps entries that do not match "==>

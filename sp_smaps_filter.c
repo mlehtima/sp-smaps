@@ -617,6 +617,9 @@ struct meminfo_t
   unsigned Shared_Dirty;
   unsigned Private_Clean;
   unsigned Private_Dirty;
+  unsigned Pss;
+  unsigned Swap;
+  unsigned Referenced;
 };
 
 void       meminfo_ctor              (meminfo_t *self);
@@ -892,6 +895,9 @@ meminfo_ctor(meminfo_t *self)
   self->Shared_Dirty  = 0;
   self->Private_Clean = 0;
   self->Private_Dirty = 0;
+  self->Pss = 0;
+  self->Swap = 0;
+  self->Referenced = 0;
 }
 
 /* ------------------------------------------------------------------------- *
@@ -937,6 +943,18 @@ meminfo_parse(meminfo_t *self, char *line)
   {
     self->Private_Dirty = strtoul(val, 0, 10);
   }
+  else if( !strcmp(key, "Pss") )
+  {
+    self->Pss   = strtoul(val, 0, 10);
+  }
+  else if( !strcmp(key, "Swap") )
+  {
+    self->Swap   = strtoul(val, 0, 10);
+  }
+  else if( !strcmp(key, "Referenced") )
+  {
+    self->Referenced   = strtoul(val, 0, 10);
+  }
   else
   {
     static unknown_t unkn = UNKNOWN_INIT;
@@ -960,6 +978,9 @@ meminfo_accumulate_appdata(meminfo_t *self, const meminfo_t *that)
   pusum(&self->Shared_Dirty,  that->Shared_Dirty);
   pusum(&self->Private_Clean, that->Private_Clean);
   pusum(&self->Private_Dirty, that->Private_Dirty);
+  pusum(&self->Pss,           that->Pss);
+  pusum(&self->Swap,          that->Swap);
+  pusum(&self->Referenced,    that->Referenced);
 }
 
 /* ------------------------------------------------------------------------- *
@@ -971,11 +992,13 @@ meminfo_accumulate_libdata(meminfo_t *self, const meminfo_t *that)
 {
   pumax(&self->Size,          that->Size);
   pumax(&self->Rss,           that->Rss);
-  pumax(&self->Rss,           that->Rss);
   pumax(&self->Shared_Clean,  that->Shared_Clean);
   pumax(&self->Shared_Dirty,  that->Shared_Dirty);
   pusum(&self->Private_Clean, that->Private_Clean);
   pusum(&self->Private_Dirty, that->Private_Dirty);
+  pusum(&self->Pss,           that->Pss);
+  pumax(&self->Swap,          that->Swap);
+  pumax(&self->Referenced,    that->Referenced);
 }
 
 /* ------------------------------------------------------------------------- *
@@ -991,6 +1014,9 @@ meminfo_accumulate_maxdata(meminfo_t *self, const meminfo_t *that)
   pumax(&self->Shared_Dirty,  that->Shared_Dirty);
   pumax(&self->Private_Clean, that->Private_Clean);
   pumax(&self->Private_Dirty, that->Private_Dirty);
+  pumax(&self->Pss,           that->Pss);
+  pumax(&self->Swap,          that->Swap);
+  pumax(&self->Referenced,    that->Referenced);
 }
 
 /* ------------------------------------------------------------------------- *
@@ -1890,6 +1916,9 @@ smapssnap_save_cap(smapssnap_t *self, const char *path)
       Pu(Shared_Dirty);
       Pu(Private_Clean);
       Pu(Private_Dirty);
+      Pu(Pss);
+      Pu(Swap);
+      Pu(Referenced);
 
 #undef Pu
     }
@@ -1944,6 +1973,7 @@ smapssnap_save_csv(smapssnap_t *self, const char *path)
           "name,pid,ppid,threads,"
           "head,tail,prot,offs,node,flag,path,"
           "size,rss,shacln,shadty,pricln,pridty,"
+          "pss,swap,referenced,"
           "pri,sha,cln,cow\n");
 
   /* - - - - - - - - - - - - - - - - - - - *
@@ -1972,13 +2002,16 @@ smapssnap_save_csv(smapssnap_t *self, const char *path)
               map->offs, map->node, map->flgs,
               map->path);
 
-      fprintf(file, "%u,%u,%u,%u,%u,%u,",
+      fprintf(file, "%u,%u,%u,%u,%u,%u,%u,%u,%u,",
               mem->Size,
               mem->Rss,
               mem->Shared_Clean,
               mem->Shared_Dirty,
               mem->Private_Clean,
-              mem->Private_Dirty);
+              mem->Private_Dirty,
+              mem->Pss,
+              mem->Swap,
+              mem->Referenced);
 
       fprintf(file, "%u,%u,%u,%u\n",
               mem->Private_Dirty,
@@ -2462,6 +2495,9 @@ analyze_accumulate_data(analyze_t *self)
     pusum(&dest->Shared_Dirty,  srce->Shared_Dirty);
     pusum(&dest->Private_Clean, srce->Private_Clean);
     pusum(&dest->Private_Dirty, srce->Private_Dirty);
+    pusum(&dest->Pss,           srce->Pss);
+    pusum(&dest->Swap,          srce->Swap);
+    pusum(&dest->Referenced,    srce->Referenced);
   }
 
   /* - - - - - - - - - - - - - - - - - - - *
@@ -2492,6 +2528,9 @@ analyze_accumulate_data(analyze_t *self)
       pusum(&dest->Shared_Dirty,  srce->Shared_Dirty);
       pusum(&dest->Private_Clean, srce->Private_Clean);
       pusum(&dest->Private_Dirty, srce->Private_Dirty);
+      pusum(&dest->Pss,           srce->Pss);
+      pusum(&dest->Swap,          srce->Swap);
+      pusum(&dest->Referenced,    srce->Referenced);
 
       /* - - - - - - - - - - - - - - - - - - - *
        * process+library/type -> library/type
@@ -2505,7 +2544,10 @@ analyze_accumulate_data(analyze_t *self)
       pumax(&dest->Shared_Dirty,  srce->Shared_Dirty);
       pusum(&dest->Private_Clean, srce->Private_Clean);
       pusum(&dest->Private_Dirty, srce->Private_Dirty);
-    }
+      pusum(&dest->Pss,           srce->Pss);
+      pumax(&dest->Swap,          srce->Swap);
+      pumax(&dest->Referenced,    srce->Referenced);
+     }
   }
 
   /* - - - - - - - - - - - - - - - - - - - *
@@ -2614,6 +2656,9 @@ analyze_emit_page_table(analyze_t *self, FILE *file, const meminfo_t *mtab)
   fprintf(file, "<th"TP"rowspan=2>%s\n", "Resident");
   fprintf(file, "<th"TP"rowspan=2>%s\n", "Size");
   fprintf(file, "<th"TP"rowspan=2>%s\n", "COW");
+  fprintf(file, "<th"TP"rowspan=2>%s\n", "Pss");
+  fprintf(file, "<th"TP"rowspan=2>%s\n", "Swap");
+  fprintf(file, "<th"TP"rowspan=2>%s\n", "Referenced");
 
   fprintf(file, "<tr>\n");
   fprintf(file, "<th"TP">%s\n", "Private");
@@ -2633,6 +2678,10 @@ analyze_emit_page_table(analyze_t *self, FILE *file, const meminfo_t *mtab)
     fprintf(file, "<td %s align=right>%s\n", bg, uval(m->Rss));
     fprintf(file, "<td %s align=right>%s\n", bg, uval(m->Size));
     fprintf(file, "<td %s align=right>%s\n", bg, uval(meminfo_cowest(m)));
+    fprintf(file, "<td %s align=right>%s\n", bg, uval(m->Pss));
+    fprintf(file, "<td %s align=right>%s\n", bg, uval(m->Swap));
+    fprintf(file, "<td %s align=right>%s\n", bg, uval(m->Referenced));
+
   }
   fprintf(file, "</table>\n");
 }
@@ -2652,6 +2701,9 @@ analyze_emit_xref_header(analyze_t *self, FILE *file, const char *type)
   fprintf(file, "<th"TP"rowspan=2>%s\n", "Rss");
   fprintf(file, "<th"TP"colspan=2>%s\n", "Dirty");
   fprintf(file, "<th"TP"colspan=2>%s\n", "Clean");
+  fprintf(file, "<th"TP"rowspan=2>%s\n", "Pss");
+  fprintf(file, "<th"TP"rowspan=2>%s\n", "Swap");
+  fprintf(file, "<th"TP"rowspan=2>%s\n", "Referenced");
 
   fprintf(file, "<tr>\n");
   fprintf(file, "<th"TP">%s\n", "Private");
@@ -2816,6 +2868,9 @@ analyze_emit_lib_html(analyze_t *self, smapssnap_t *snap, const char *work)
         fprintf(file, "<td%s align=right>%s\n", bg, uval(m->smapsmapp_mem.Shared_Dirty));
         fprintf(file, "<td%s align=right>%s\n", bg, uval(m->smapsmapp_mem.Private_Clean));
         fprintf(file, "<td%s align=right>%s\n", bg, uval(m->smapsmapp_mem.Shared_Clean));
+        fprintf(file, "<td%s align=right>%s\n", bg, uval(m->smapsmapp_mem.Pss));
+        fprintf(file, "<td%s align=right>%s\n", bg, uval(m->smapsmapp_mem.Swap));
+        fprintf(file, "<td%s align=right>%s\n", bg, uval(m->smapsmapp_mem.Referenced));
       }
     }
 
@@ -2964,6 +3019,9 @@ analyze_emit_app_html(analyze_t *self, smapssnap_t *snap, const char *work)
         fprintf(file, "<td%s align=right>%s\n", bg, uval(m->smapsmapp_mem.Shared_Dirty));
         fprintf(file, "<td%s align=right>%s\n", bg, uval(m->smapsmapp_mem.Private_Clean));
         fprintf(file, "<td%s align=right>%s\n", bg, uval(m->smapsmapp_mem.Shared_Clean));
+        fprintf(file, "<td%s align=right>%s\n", bg, uval(m->smapsmapp_mem.Pss));
+        fprintf(file, "<td%s align=right>%s\n", bg, uval(m->smapsmapp_mem.Swap));
+        fprintf(file, "<td%s align=right>%s\n", bg, uval(m->smapsmapp_mem.Referenced));
       }
     }
 
@@ -3004,6 +3062,9 @@ analyze_emit_smaps_table(analyze_t *self, FILE *file, meminfo_t *v)
   fprintf(file, "<th"TP"rowspan=2>%s\n", "Resident");
   fprintf(file, "<th"TP"rowspan=2>%s\n", "Size");
   fprintf(file, "<th"TP"rowspan=2>%s\n", "COW");
+  fprintf(file, "<th"TP"rowspan=2>%s\n", "Pss");
+  fprintf(file, "<th"TP"rowspan=2>%s\n", "Swap");
+  fprintf(file, "<th"TP"rowspan=2>%s\n", "Referenced");
 
   fprintf(file, "<tr>\n");
   fprintf(file, "<th"TP">%s\n", "Private");
@@ -3023,6 +3084,9 @@ analyze_emit_smaps_table(analyze_t *self, FILE *file, meminfo_t *v)
     fprintf(file, "<td %s align=right>%s\n", bg, uval(m->Rss));
     fprintf(file, "<td %s align=right>%s\n", bg, uval(m->Size));
     fprintf(file, "<td %s align=right>%s\n", bg, uval(meminfo_cowest(m)));
+    fprintf(file, "<td %s align=right>%s\n", bg, uval(m->Pss));
+    fprintf(file, "<td %s align=right>%s\n", bg, uval(m->Swap));
+    fprintf(file, "<td %s align=right>%s\n", bg, uval(m->Referenced));
   }
 
   fprintf(file, "</table>\n");
@@ -3038,7 +3102,7 @@ analyze_emit_table_header(analyze_t *self, FILE *file, const char *title)
   fprintf(file, "<tr>\n");
   fprintf(file, "<th"TP" rowspan=3>%s\n", title);
   fprintf(file, "<th"TP" colspan=3>%s\n", "RSS / Status");
-  fprintf(file, "<th"TP" rowspan=2 colspan=2>%s\n", "Virtual<br>Memory");
+  fprintf(file, "<th"TP" rowspan=2 colspan=5>%s\n", "Virtual<br>Memory");
   fprintf(file, "<th"TP" rowspan=3>%s\n", "RSS<br>COW<br>Est.");
   fprintf(file, "<th"TP" colspan=%d>%s\n", self->ntypes-1, "RSS / Class");
 
@@ -3055,6 +3119,9 @@ analyze_emit_table_header(analyze_t *self, FILE *file, const char *title)
   fprintf(file, "<th"TP">%s\n", "Shared");
   fprintf(file, "<th"TP">%s\n", "RSS");
   fprintf(file, "<th"TP">%s\n", "Size");
+  fprintf(file, "<th"TP">%s\n", "PSS");
+  fprintf(file, "<th"TP">%s\n", "Swap");
+  fprintf(file, "<th"TP">%s\n", "Referenced");
 }
 
 /* ------------------------------------------------------------------------- *
@@ -3135,6 +3202,9 @@ analyze_emit_application_table(analyze_t *self, FILE *file, const char *work)
     fprintf(file, "<td %s align=right>%s\n", bg, uval(s->Private_Clean + s->Shared_Clean));
     fprintf(file, "<td %s align=right>%s\n", bg, uval(s->Rss));
     fprintf(file, "<td %s align=right>%s\n", bg, uval(s->Size));
+    fprintf(file, "<td %s align=right>%s\n", bg, uval(s->Pss));
+    fprintf(file, "<td %s align=right>%s\n", bg, uval(s->Swap));
+    fprintf(file, "<td %s align=right>%s\n", bg, uval(s->Referenced));
 
     fprintf(file, "<td %s align=right>%s\n", bg, uval(meminfo_cowest(s)));
 
@@ -3196,6 +3266,9 @@ analyze_emit_library_table(analyze_t *self, FILE *file, const char *work)
     fprintf(file, "<td %s align=right>%s\n", bg, uval(s->Private_Clean + s->Shared_Clean));
     fprintf(file, "<td %s align=right>%s\n", bg, uval(s->Rss));
     fprintf(file, "<td %s align=right>%s\n", bg, uval(s->Size));
+    fprintf(file, "<td %s align=right>%s\n", bg, uval(s->Pss));
+    fprintf(file, "<td %s align=right>%s\n", bg, uval(s->Swap));
+    fprintf(file, "<td %s align=right>%s\n", bg, uval(s->Referenced));
 
     fprintf(file, "<td %s align=right>%s\n", bg, uval(meminfo_cowest(s)));
 
@@ -3399,7 +3472,7 @@ analyze_emit_appval_table(analyze_t *self, smapssnap_t *snap, FILE *file)
 
   fprintf(file, "generator = %s %s\n", TOOL_NAME, TOOL_VERS);
   fprintf(file, "\n");
-  fprintf(file, "name,pid,ppid,threads,pri,sha,cln,rss,size,cow");
+  fprintf(file, "name,pid,ppid,threads,pri,sha,cln,rss,size,cow,rss,pss,swap,referenced");
   for( int t = 1; t < self->ntypes; ++t )
   {
     fprintf(file, ",%s", self->stype[t]);
@@ -3424,6 +3497,9 @@ analyze_emit_appval_table(analyze_t *self, smapssnap_t *snap, FILE *file)
     fprintf(file, ",%s", uval(s->Rss));
     fprintf(file, ",%s", uval(s->Size));
     fprintf(file, ",%s", uval(meminfo_cowest(s)));
+    fprintf(file, ",%s", uval(s->Pss));
+    fprintf(file, ",%s", uval(s->Swap));
+    fprintf(file, ",%s", uval(s->Referenced));
 
     for( int t = 1; t < self->ntypes; ++t )
     {
