@@ -1,0 +1,22 @@
+Source: sp-smaps
+Section: devel
+Priority: optional
+Maintainer: Eero Tamminen <eero.tamminen@nokia.com>
+Build-Depends: debhelper (>= 4.1.0), python, libsysperf-dev
+Standards-Version: 3.6.1
+
+Package: sp-smaps-measure
+Architecture: any
+Depends: ${shlibs:Depends}
+Suggests: 
+Description: /proc/pid/smaps snapshot generator
+ Utilities for taking snapshots of /proc/pid/smaps memory information.
+ . 
+
+Package: sp-smaps-visualize
+Architecture: any
+Depends: python, ${shlibs:Depends}
+Suggests: 
+Description: /proc/pid/smaps snapshot analyzer
+ Utilities for analyzing /proc/pid/smaps snapshots.
+ . 

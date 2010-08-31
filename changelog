@@ -1,0 +1,133 @@
+
+==============================================================================
+2006 week 17 (24.04. - 30.04.)
+==============================================================================
+
+sp_smaps_analyze.py:
+    Simo Piiroinen
+        - sp_smaps_diff column VAR -> back to RANK
+        - sp_smaps_diff no longer filters vertical redundancy from csv output
+          by default (new option --filter-output=yes/no)
+
+==============================================================================
+2006 week 15 (10.04. - 16.04.)
+==============================================================================
+
+sp_smaps_analyze.py:
+    Simo Piiroinen
+        - code cleanup
+        - help fixes
+
+==============================================================================
+2006 week 14 (03.04. - 09.04.)
+==============================================================================
+
+Makefile:
+    Simo Piiroinen
+        - added symlinking for multimode postprocessor
+
+sp_smaps_analyze.py:
+    Simo Piiroinen
+        - help fixes
+        - is a multi mode executable now and implements:
+          * sp_smaps_flatten:   cap -> cap  thread remover for arm captures
+          * sp_smaps_normalize: cap -> csv  normalization
+          * sp_smaps_analyze:   cap -> html analysis page generator
+          * sp_smaps_appvals:   cap -> csv  application data filter
+          * sp_smaps_diff:      cap -> html smaps capture diff (also csv output)
+        - rewritten from scratch
+
+sp_smaps_snapshot.c:
+    Simo Piiroinen
+        - interleaves data from /proc/pid/status to output
+        - application name taken from /proc/pid/cmdline
+
+==============================================================================
+2006 week 09 (27.02. - 05.03.)
+==============================================================================
+
+sp_smaps_normalize.py:
+    Simo Piiroinen
+        - /proc/pid/smaps output chaged -> parsing fixed
+        - merged earlier COW changes by Ville Medeiros
+
+==============================================================================
+2005 week 37 (12.09. - 18.09.)
+==============================================================================
+
+Makefile:
+    Simo Piiroinen
+        - added sp_smaps_diff
+
+sp_smaps_diff.py:
+    Simo Piiroinen
+        - added options for version & usage queries
+        - added option --level for setting report level
+        - added option --min-rank for output filtering
+
+sp_smaps_snapshot.c:
+    Simo Piiroinen
+        - added "see also" section to usage info
+
+==============================================================================
+2005 week 36 (05.09. - 11.09.)
+==============================================================================
+
+Makefile:
+    Simo Piiroinen
+        - added C version of sp_smaps_snapshot
+
+sp_smaps_diff.py:
+    Simo Piiroinen
+        - initial version
+
+sp_smaps_normalize.py:
+    Simo Piiroinen
+        - added option '--enumerate-pids'
+
+sp_smaps_snapshot.c:
+    Simo Piiroinen
+        - replaces the old shell script
+
+==============================================================================
+2005 week 27 (04.07. - 10.07.)
+==============================================================================
+
+Makefile:
+    Simo Piiroinen
+        - copied from sp-memtransfer
+
+sp_smaps_normalize.py:
+    Simo Piiroinen
+        - command line parser added
+        - contollable verbosity
+        - major cleanup
+
+sp_smaps_snapshot.sh:
+    Simo Piiroinen
+        - initial version
+
+==============================================================================
+2005 week 20 (16.05. - 22.05.)
+==============================================================================
+
+sp_smaps_normalize.py:
+    Ville Medeiros
+        - Add Cow(Copy on Write) information to output html pages
+        - Add values(RSS, Shared, Private,Clean, Cow) to the output html pages
+
+==============================================================================
+2005 week 10 (07.03. - 13.03.)
+==============================================================================
+
+sp_smaps_normalize.py:
+    Simo Piiroinen
+        - renamed from 'smaps_pp.py' to 'smaps_to_csv.py'
+
+==============================================================================
+2005 week 05 (31.01. - 06.02.)
+==============================================================================
+
+sp_smaps_normalize.py:
+    Simo Piiroinen
+        - first version

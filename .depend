@@ -1,0 +1,3 @@
+sp_smaps_filter.o: sp_smaps_filter.c symtab.h
+sp_smaps_snapshot.o: sp_smaps_snapshot.c release.h
+symtab.o: symtab.c symtab.h
