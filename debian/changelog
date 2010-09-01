@@ -1,3 +1,10 @@
+sp-smaps (0.2.3) unstable; urgency=low
+
+  * Add manual pages for all binaries in the sp-smaps-visualize package.
+    Fixes: NB#187454
+
+ -- Tommi Rantala <ext-tommi.1.rantala@nokia.com>  Wed, 01 Sep 2010 11:38:27 +0300
+
 sp-smaps (0.2.2) unstable; urgency=low
 
   * Added support of the new smaps fields - pss, swap, referenced.
