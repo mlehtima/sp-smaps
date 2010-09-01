@@ -228,12 +228,19 @@ install-measure-man:: $(MAN_MEASURE)
 # Visualization Package Installation
 # -----------------------------------------------------------------------------
 
-install-visualize:: $(addprefix install-visualize-,dll bin man lnk)
+install-visualize:: $(addprefix install-visualize-,dll bin lnk man)
 
 install-visualize-dll:: $(DLL_VISUALIZE)
 install-visualize-bin:: $(BIN_VISUALIZE)
-install-visualize-man:: $(MAN_VISUALIZE)
 install-visualize-lnk:: $(addprefix $(ROOT)$(BIN)/,$(LNK_VISUALIZE))
+install-visualize-man:: $(MAN_VISUALIZE)
+	$(call INSTALL_DIR,$^,$(ROOT)$(MAN1))
+	$(call INSTALL_MAN,$^,$(ROOT)$(MAN1))
+	ln -fs sp_smaps_filter.1.gz $(ROOT)$(MAN1)/sp_smaps_analyze.1.gz
+	ln -fs sp_smaps_filter.1.gz $(ROOT)$(MAN1)/sp_smaps_appvals.1.gz
+	ln -fs sp_smaps_filter.1.gz $(ROOT)$(MAN1)/sp_smaps_diff.1.gz
+	ln -fs sp_smaps_filter.1.gz $(ROOT)$(MAN1)/sp_smaps_flatten.1.gz
+	ln -fs sp_smaps_filter.1.gz $(ROOT)$(MAN1)/sp_smaps_normalize.1.gz
 
 # -----------------------------------------------------------------------------
 # Target specific Rules
