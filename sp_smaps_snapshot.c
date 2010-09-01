@@ -129,7 +129,7 @@ static const manual_t app_man[]=
           "There is NO WARRANTY, to the extent permitted by law.\n"
           )
   MAN_ADD("SEE ALSO",
-          "sp_smaps_normalize (1), sp_smaps_analyze (1), sp_smaps_diff (1)\n"
+          "sp_smaps_filter (1)\n"
           "\n"
           )
   MAN_END
