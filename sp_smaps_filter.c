@@ -4445,12 +4445,14 @@ smapsfilt_handle_arguments(smapsfilt_t *self, int ac, char **av)
 static void
 smapsfilt_load_inputs(smapsfilt_t *self)
 {
+  int error;
   for( int i = 0; i < self->smapsfilt_inputs.size; ++i )
   {
     const char *path = self->smapsfilt_inputs.data[i];
 
     smapssnap_t *snap = smapssnap_create();
-    smapssnap_load_cap(snap, path);
+    error = smapssnap_load_cap(snap, path);
+    if (error) continue;
     array_add(&self->smapsfilt_snaplist, snap);
 
 // QUARANTINE     smapssnap_save_cap(snap, "out1.cap");
