@@ -449,6 +449,9 @@ INLINE void pumax(unsigned *a, unsigned b)
   if( *a < b ) *a=b;
 }
 
+/* Pass additional data to qsort() comparison function. */
+static void *qsort_cmp_data;
+
 /* ------------------------------------------------------------------------- *
  * array_find_lower  --  bsearch lower bound from sorted array_t
  * ------------------------------------------------------------------------- */
@@ -1630,28 +1633,29 @@ smapssnap_set_source(smapssnap_t *self, const char *path)
  * smapssnap_create_hierarchy
  * ------------------------------------------------------------------------- */
 
+/* - - - - - - - - - - - - - - - - - - - *
+ * binsearch utility function
+ * - - - - - - - - - - - - - - - - - - - */
+
+static smapsproc_t *
+proc_find(smapssnap_t *self, int pid)
+{
+  int lo = 0, hi = self->smapssnap_proclist.size;
+  while( lo < hi )
+  {
+    int i = (lo + hi) / 2;
+    smapsproc_t *p = self->smapssnap_proclist.data[i];
+
+    if( p->smapsproc_pid.Pid > pid ) { hi = i+0; continue; }
+    if( p->smapsproc_pid.Pid < pid ) { lo = i+1; continue; }
+    return p;
+  }
+  return 0;
+}
+
 void
 smapssnap_create_hierarchy(smapssnap_t *self)
 {
-  /* - - - - - - - - - - - - - - - - - - - *
-   * binsearch utility function
-   * - - - - - - - - - - - - - - - - - - - */
-
-  auto smapsproc_t *find(int pid)
-  {
-    int lo = 0, hi = self->smapssnap_proclist.size;
-    while( lo < hi )
-    {
-      int i = (lo + hi) / 2;
-      smapsproc_t *p = self->smapssnap_proclist.data[i];
-
-      if( p->smapsproc_pid.Pid > pid ) { hi = i+0; continue; }
-      if( p->smapsproc_pid.Pid < pid ) { lo = i+1; continue; }
-      return p;
-    }
-    return 0;
-  }
-
   /* - - - - - - - - - - - - - - - - - - - *
    * sort processes by PID
    * - - - - - - - - - - - - - - - - - - - */
@@ -1665,7 +1669,7 @@ smapssnap_create_hierarchy(smapssnap_t *self)
   for( size_t i = 0; i < self->smapssnap_proclist.size; ++i )
   {
     smapsproc_t *cur = self->smapssnap_proclist.data[i];
-    smapsproc_t *par = find(cur->smapsproc_pid.PPid);
+    smapsproc_t *par = proc_find(self, cur->smapsproc_pid.PPid);
 
     assert( cur->smapsproc_parent == 0 );
 
@@ -1732,18 +1736,19 @@ smapssnap_add_process(smapssnap_t *self, int pid)
  * smapssnap_load_cap
  * ------------------------------------------------------------------------- */
 
+static int
+hexterm(const char *s)
+{
+  while( isxdigit(*s) )
+  {
+    ++s;
+  }
+  return *s;
+}
+
 int
 smapssnap_load_cap(smapssnap_t *self, const char *path)
 {
-  auto int hexterm(const char *s)
-  {
-    while( isxdigit(*s) )
-    {
-      ++s;
-    }
-    return *s;
-  }
-
   int          error = -1;
   FILE        *file  = 0;
   smapsproc_t *proc  = 0;
@@ -2290,16 +2295,17 @@ analyze_delete_cb(void *self)
  * analyze_enumerate_data
  * ------------------------------------------------------------------------- */
 
+static int
+local_compare_path(const void *a1, const void *a2)
+{
+  const smapsmapp_t *m1 = *(const smapsmapp_t **)a1;
+  const smapsmapp_t *m2 = *(const smapsmapp_t **)a2;
+  return path_compare(m1->smapsmapp_map.path, m2->smapsmapp_map.path);
+}
+
 void
 analyze_enumerate_data(analyze_t *self, smapssnap_t *snap)
 {
-  auto int local_compare_path(const void *a1, const void *a2)
-  {
-    const smapsmapp_t *m1 = *(const smapsmapp_t **)a1;
-    const smapsmapp_t *m2 = *(const smapsmapp_t **)a2;
-    return path_compare(m1->smapsmapp_map.path, m2->smapsmapp_map.path);
-  }
-
   char temp[512];
 
   /* - - - - - - - - - - - - - - - - - - - *
@@ -2716,14 +2722,18 @@ analyze_emit_xref_header(analyze_t *self, FILE *file, const char *type)
  * analyze_get_apprange
  * ------------------------------------------------------------------------- */
 
+static int cmp_app_aid;
+static int
+cmp_app(const void *p)
+{
+  const smapsmapp_t *m = p;
+  return m->smapsmapp_AID - cmp_app_aid;
+}
+
 void
 analyze_get_apprange(analyze_t *self,int lo, int hi, int *plo, int *phi, int aid)
 {
-  auto int cmp_app(const void *p)
-  {
-    const smapsmapp_t *m = p; return m->smapsmapp_AID - aid;
-  }
-
+  cmp_app_aid = aid;
   *plo = array_find_lower(self->mapp_tab, lo, hi, cmp_app);
   *phi = array_find_upper(self->mapp_tab, lo, hi, cmp_app);
 }
@@ -2732,14 +2742,18 @@ analyze_get_apprange(analyze_t *self,int lo, int hi, int *plo, int *phi, int aid
  * analyze_get_librange
  * ------------------------------------------------------------------------- */
 
+static int cmp_lib_lid;
+static int
+cmp_lib(const void *p)
+{
+  const smapsmapp_t *m = p;
+  return m->smapsmapp_LID - cmp_lib_lid;
+}
+
 void
 analyze_get_librange(analyze_t *self,int lo, int hi, int *plo, int *phi, int lid)
 {
-  auto int cmp_lib(const void *p)
-  {
-    const smapsmapp_t *m = p; return m->smapsmapp_LID - lid;
-  }
-
+  cmp_lib_lid = lid;
   *plo = array_find_lower(self->mapp_tab, lo, hi, cmp_lib);
   *phi = array_find_upper(self->mapp_tab, lo, hi, cmp_lib);
 }
@@ -2748,34 +2762,35 @@ analyze_get_librange(analyze_t *self,int lo, int hi, int *plo, int *phi, int lid
  * analyze_emit_lib_html
  * ------------------------------------------------------------------------- */
 
+static int
+local_lib_app_compare(const void *a1, const void *a2)
+{
+  const smapsmapp_t *m1 = *(const smapsmapp_t **)a1;
+  const smapsmapp_t *m2 = *(const smapsmapp_t **)a2;
+
+  int r;
+
+  /* - - - - - - - - - - - - - - - - - - - *
+   * primary sorting: must be LID then AID
+   * for the range searching below to work!
+   * - - - - - - - - - - - - - - - - - - - */
+
+  if( (r = m1->smapsmapp_LID - m2->smapsmapp_LID) != 0 ) return r;
+  if( (r = m1->smapsmapp_AID - m2->smapsmapp_AID) != 0 ) return r;
+
+  /* - - - - - - - - - - - - - - - - - - - *
+   * secondary sorting: convenience order
+   * - - - - - - - - - - - - - - - - - - - */
+
+  if( (r = m1->smapsmapp_TID - m2->smapsmapp_TID) != 0 ) return r;
+  if( (r = m2->smapsmapp_mem.Rss - m1->smapsmapp_mem.Rss) ) return r;
+
+  return 0;
+}
+
 int
 analyze_emit_lib_html(analyze_t *self, smapssnap_t *snap, const char *work)
 {
-  auto int local_lib_app_compare(const void *a1, const void *a2)
-  {
-    const smapsmapp_t *m1 = *(const smapsmapp_t **)a1;
-    const smapsmapp_t *m2 = *(const smapsmapp_t **)a2;
-
-    int r;
-
-    /* - - - - - - - - - - - - - - - - - - - *
-     * primary sorting: must be LID then AID
-     * for the range searching below to work!
-     * - - - - - - - - - - - - - - - - - - - */
-
-    if( (r = m1->smapsmapp_LID - m2->smapsmapp_LID) != 0 ) return r;
-    if( (r = m1->smapsmapp_AID - m2->smapsmapp_AID) != 0 ) return r;
-
-    /* - - - - - - - - - - - - - - - - - - - *
-     * secondary sorting: convenience order
-     * - - - - - - - - - - - - - - - - - - - */
-
-    if( (r = m1->smapsmapp_TID - m2->smapsmapp_TID) != 0 ) return r;
-    if( (r = m2->smapsmapp_mem.Rss - m1->smapsmapp_mem.Rss) ) return r;
-
-    return 0;
-  }
-
   int   error = -1;
   FILE *file  = 0;
 
@@ -2900,34 +2915,35 @@ analyze_emit_lib_html(analyze_t *self, smapssnap_t *snap, const char *work)
  * analyze_emit_app_html
  * ------------------------------------------------------------------------- */
 
+static int
+local_app_lib_compare(const void *a1, const void *a2)
+{
+  const smapsmapp_t *m1 = *(const smapsmapp_t **)a1;
+  const smapsmapp_t *m2 = *(const smapsmapp_t **)a2;
+
+  int r;
+
+  /* - - - - - - - - - - - - - - - - - - - *
+   * primary sorting: must be AID then LID
+   * for the range searching below to work!
+   * - - - - - - - - - - - - - - - - - - - */
+
+  if( (r = m1->smapsmapp_AID - m2->smapsmapp_AID) != 0 ) return r;
+  if( (r = m1->smapsmapp_LID - m2->smapsmapp_LID) != 0 ) return r;
+
+  /* - - - - - - - - - - - - - - - - - - - *
+   * secondary sorting: convenience order
+   * - - - - - - - - - - - - - - - - - - - */
+
+  if( (r = m1->smapsmapp_TID - m2->smapsmapp_TID) != 0 ) return r;
+  if( (r = m2->smapsmapp_mem.Rss - m1->smapsmapp_mem.Rss) ) return r;
+
+  return 0;
+}
+
 int
 analyze_emit_app_html(analyze_t *self, smapssnap_t *snap, const char *work)
 {
-  auto int local_app_lib_compare(const void *a1, const void *a2)
-  {
-    const smapsmapp_t *m1 = *(const smapsmapp_t **)a1;
-    const smapsmapp_t *m2 = *(const smapsmapp_t **)a2;
-
-    int r;
-
-    /* - - - - - - - - - - - - - - - - - - - *
-     * primary sorting: must be AID then LID
-     * for the range searching below to work!
-     * - - - - - - - - - - - - - - - - - - - */
-
-    if( (r = m1->smapsmapp_AID - m2->smapsmapp_AID) != 0 ) return r;
-    if( (r = m1->smapsmapp_LID - m2->smapsmapp_LID) != 0 ) return r;
-
-    /* - - - - - - - - - - - - - - - - - - - *
-     * secondary sorting: convenience order
-     * - - - - - - - - - - - - - - - - - - - */
-
-    if( (r = m1->smapsmapp_TID - m2->smapsmapp_TID) != 0 ) return r;
-    if( (r = m2->smapsmapp_mem.Rss - m1->smapsmapp_mem.Rss) ) return r;
-
-    return 0;
-  }
-
   int error = -1;
   char temp[512];
   FILE *file = 0;
@@ -3155,6 +3171,21 @@ analyze_emit_process_hierarchy(analyze_t *self, FILE *file, smapsproc_t *proc,
  * analyze_emit_application_table
  * ------------------------------------------------------------------------- */
 
+static int
+analyze_emit_application_table_cmp(const void *a1, const void *a2)
+{
+  analyze_t *self = qsort_cmp_data;
+  const meminfo_t *m1 = analyze_app_mem(self, *(const int *)a1, 0);
+  const meminfo_t *m2 = analyze_app_mem(self, *(const int *)a2, 0);
+
+  int r;
+  if( (r = m2->Private_Dirty - m1->Private_Dirty) != 0 ) return r;
+  if( (r = m2->Shared_Dirty  - m1->Shared_Dirty) != 0 ) return r;
+  if( (r = m2->Rss           - m1->Rss) != 0 ) return r;
+
+  return m2->Size - m1->Size;
+}
+
 void
 analyze_emit_application_table(analyze_t *self, FILE *file, const char *work)
 {
@@ -3165,20 +3196,8 @@ analyze_emit_application_table(analyze_t *self, FILE *file, const char *work)
     lut[i] = i;
   }
 
-  auto int lut_cmp(const void *a1, const void *a2)
-  {
-    const meminfo_t *m1 = analyze_app_mem(self, *(const int *)a1, 0);
-    const meminfo_t *m2 = analyze_app_mem(self, *(const int *)a2, 0);
-
-    int r;
-    if( (r = m2->Private_Dirty - m1->Private_Dirty) != 0 ) return r;
-    if( (r = m2->Shared_Dirty  - m1->Shared_Dirty) != 0 ) return r;
-    if( (r = m2->Rss           - m1->Rss) != 0 ) return r;
-
-    return m2->Size - m1->Size;
-  }
-
-  qsort(lut, self->nappls, sizeof *lut, lut_cmp);
+  qsort_cmp_data = self;
+  qsort(lut, self->nappls, sizeof *lut, analyze_emit_application_table_cmp);
 
   fprintf(file, "<table border=1>\n");
   int N = 20; N = (self->nappls + N-1)/N, N = (self->nappls + N-1)/N;
@@ -3221,6 +3240,20 @@ analyze_emit_application_table(analyze_t *self, FILE *file, const char *work)
  * analyze_emit_library_table
  * ------------------------------------------------------------------------- */
 
+static int
+analyze_emit_library_table_cmp(const void *a1, const void *a2)
+{
+  analyze_t *self = qsort_cmp_data;
+  const meminfo_t *m1 = analyze_lib_mem(self, *(const int *)a1, 0);
+  const meminfo_t *m2 = analyze_lib_mem(self, *(const int *)a2, 0);
+  int r;
+  if( (r = m2->Private_Dirty - m1->Private_Dirty) != 0 ) return r;
+  if( (r = m2->Shared_Dirty  - m1->Shared_Dirty) != 0 ) return r;
+  if( (r = m2->Rss           - m1->Rss) != 0 ) return r;
+
+  return m2->Size - m1->Size;
+}
+
 void
 analyze_emit_library_table(analyze_t *self, FILE *file, const char *work)
 {
@@ -3231,19 +3264,8 @@ analyze_emit_library_table(analyze_t *self, FILE *file, const char *work)
     lut[i] = i;
   }
 
-  auto int lut_cmp(const void *a1, const void *a2)
-  {
-    const meminfo_t *m1 = analyze_lib_mem(self, *(const int *)a1, 0);
-    const meminfo_t *m2 = analyze_lib_mem(self, *(const int *)a2, 0);
-    int r;
-    if( (r = m2->Private_Dirty - m1->Private_Dirty) != 0 ) return r;
-    if( (r = m2->Shared_Dirty  - m1->Shared_Dirty) != 0 ) return r;
-    if( (r = m2->Rss           - m1->Rss) != 0 ) return r;
-
-    return m2->Size - m1->Size;
-  }
-
-  qsort(lut, self->npaths, sizeof *lut, lut_cmp);
+  qsort_cmp_data = self;
+  qsort(lut, self->npaths, sizeof *lut, analyze_emit_library_table_cmp);
 
   fprintf(file, "<table border=1>\n");
   int N = 20; N = (self->npaths + N-1)/N, N = (self->npaths + N-1)/N;
@@ -3416,15 +3438,31 @@ analyze_emit_main_page(analyze_t *self, smapssnap_t *snap, const char *path)
  * analyze_emit_appval_table
  * ------------------------------------------------------------------------- */
 
+static int
+analyze_emit_appval_table_cmp(const void *a1, const void *a2)
+{
+  analyze_t *self = qsort_cmp_data;
+
+  typedef struct { int id; smapsproc_t *pt; } lut_t;
+  const lut_t *l1 = a1;
+  const lut_t *l2 = a2;
+
+  const meminfo_t *m1 = analyze_app_mem(self, l1->id, 0);
+  const meminfo_t *m2 = analyze_app_mem(self, l2->id, 0);
+
+  int r;
+  if( (r = m2->Private_Dirty - m1->Private_Dirty) != 0 ) return r;
+  if( (r = m2->Shared_Dirty  - m1->Shared_Dirty) != 0 ) return r;
+  if( (r = m2->Rss           - m1->Rss) != 0 ) return r;
+
+  if( (r = m2->Size - m1->Size) != 0 ) return r;
+
+  return l1->pt->smapsproc_AID - l2->pt->smapsproc_AID;
+}
+
 void
 analyze_emit_appval_table(analyze_t *self, smapssnap_t *snap, FILE *file)
 {
-  char temp[512];
-  auto const char *uval(unsigned u)
-  {
-    snprintf(temp, sizeof temp, "%u", u); return temp;
-  }
-
   typedef struct { int id; smapsproc_t *pt; } lut_t;
   lut_t lut[self->nappls];
 
@@ -3449,26 +3487,8 @@ analyze_emit_appval_table(analyze_t *self, smapssnap_t *snap, FILE *file)
     assert( lut[i].pt != 0 );
   }
 
-  auto int lut_cmp(const void *a1, const void *a2)
-  {
-    const lut_t *l1 = a1;
-    const lut_t *l2 = a2;
-
-    const meminfo_t *m1 = analyze_app_mem(self, l1->id, 0);
-    const meminfo_t *m2 = analyze_app_mem(self, l2->id, 0);
-
-    int r;
-    if( (r = m2->Private_Dirty - m1->Private_Dirty) != 0 ) return r;
-    if( (r = m2->Shared_Dirty  - m1->Shared_Dirty) != 0 ) return r;
-    if( (r = m2->Rss           - m1->Rss) != 0 ) return r;
-
-    if( (r = m2->Size - m1->Size) != 0 ) return r;
-
-    return l1->pt->smapsproc_AID - l2->pt->smapsproc_AID;
-    //return 0;
-  }
-
-  qsort(lut, self->nappls, sizeof *lut, lut_cmp);
+  qsort_cmp_data = self;
+  qsort(lut, self->nappls, sizeof *lut, analyze_emit_appval_table_cmp);
 
   fprintf(file, "generator = %s %s\n", TOOL_NAME, TOOL_VERS);
   fprintf(file, "\n");
@@ -3491,20 +3511,20 @@ analyze_emit_appval_table(analyze_t *self, smapssnap_t *snap, FILE *file)
 
     meminfo_t *s = analyze_app_mem(self, a, 0);
 
-    fprintf(file, ",%s", uval(s->Private_Dirty));
-    fprintf(file, ",%s", uval(s->Shared_Dirty));
-    fprintf(file, ",%s", uval(s->Private_Clean + s->Shared_Clean));
-    fprintf(file, ",%s", uval(s->Rss));
-    fprintf(file, ",%s", uval(s->Size));
-    fprintf(file, ",%s", uval(meminfo_cowest(s)));
-    fprintf(file, ",%s", uval(s->Pss));
-    fprintf(file, ",%s", uval(s->Swap));
-    fprintf(file, ",%s", uval(s->Referenced));
+    fprintf(file, ",%u", s->Private_Dirty);
+    fprintf(file, ",%u", s->Shared_Dirty);
+    fprintf(file, ",%u", s->Private_Clean + s->Shared_Clean);
+    fprintf(file, ",%u", s->Rss);
+    fprintf(file, ",%u", s->Size);
+    fprintf(file, ",%u", meminfo_cowest(s));
+    fprintf(file, ",%u", s->Pss);
+    fprintf(file, ",%u", s->Swap);
+    fprintf(file, ",%u", s->Referenced);
 
     for( int t = 1; t < self->ntypes; ++t )
     {
       meminfo_t *s = analyze_app_mem(self, a, t);
-      fprintf(file, ",%s", uval(meminfo_total(s)));
+      fprintf(file, ",%u", meminfo_total(s));
     }
     fprintf(file, "\n");
   }
@@ -3817,25 +3837,75 @@ diffkey_delete_cb(void *self)
   diffkey_delete(self);
 }
 
+/* - - - - - - - - - - - - - - - - - - - *
+ * sort operator for process data
+ * - - - - - - - - - - - - - - - - - - - */
+
+static int
+cmp_app_pid(const void *a1, const void *a2)
+{
+  const smapsproc_t *p1 = *(const smapsproc_t **)a1;
+  const smapsproc_t *p2 = *(const smapsproc_t **)a2;
+  int r;
+  if( (r = p1->smapsproc_AID - p2->smapsproc_AID) != 0 ) return r;
+  if( (r = p1->smapsproc_PID - p2->smapsproc_PID) != 0 ) return r;
+  return 0;
+}
+
+static void
+diff_ins(const diffkey_t *key, const diffval_t *val, int cap,
+         int diff_cnt, int diff_max, diffkey_t **diff_tab)
+{
+  for( int lo = 0, hi = diff_cnt;; )
+  {
+    if( lo == hi )
+    {
+      if( diff_cnt == diff_max )
+      {
+        diff_tab = realloc(diff_tab, (diff_max *= 2) * sizeof *diff_tab);
+      }
+      memmove(&diff_tab[lo+1], &diff_tab[lo+0],
+              (diff_cnt - lo) * sizeof *diff_tab);
+      diff_cnt += 1;
+      diff_tab[lo] = diffkey_create(key);
+      diffval_add(diffkey_val(diff_tab[lo],cap), val);
+      break;
+    }
+    int i = (lo + hi) / 2;
+    int r = diffkey_compare(diff_tab[i], key);
+    if( r < 0 ) { lo = i + 1; continue; }
+    if( r > 0 ) { hi = i + 0; continue; }
+    diffval_add(diffkey_val(diff_tab[i],cap), val);
+    break;
+  }
+}
+
+static void
+diff_emit_entry(diffkey_t *k, const char *name,
+                double rank, const double *data,
+                char ***out_row, int *out_cnt, int out_dta,
+                const char **appl_str, const char **type_str,
+                const char **path_str)
+{
+  char **out = calloc(out_dta, sizeof *out);
+  if( k->appl >= 0 ) xstrfmt(&out[0], "%s", appl_str[k->appl]);
+  if( k->inst >= 0 ) xstrfmt(&out[1], "%d", k->inst);
+  if( k->type >= 0 ) xstrfmt(&out[2], "%s", type_str[k->type]);
+  if( k->path >= 0 ) xstrfmt(&out[3], "%s", path_str[k->path]);
+  xstrfmt(&out[4],"%s", name);
+  for( int j = 0; j < k->cnt; ++j )
+  {
+    xstrfmt(&out[5+j], "%g", data[j]);
+  }
+  xstrfmt(&out[5+k->cnt], "%.1f\n", rank);
+  out_row[*out_cnt++] = out;
+}
+
 int
 smapsfilt_diff(smapsfilt_t *self, const char *path,
                int diff_lev, int html_diff, int trim_cols)
 {
   int error = -1;
-
-  /* - - - - - - - - - - - - - - - - - - - *
-   * sort operator for process data
-   * - - - - - - - - - - - - - - - - - - - */
-
-  auto int cmp_app_pid(const void *a1, const void *a2)
-  {
-    const smapsproc_t *p1 = *(const smapsproc_t **)a1;
-    const smapsproc_t *p2 = *(const smapsproc_t **)a2;
-    int r;
-    if( (r = p1->smapsproc_AID - p2->smapsproc_AID) != 0 ) return r;
-    if( (r = p1->smapsproc_PID - p2->smapsproc_PID) != 0 ) return r;
-    return 0;
-  }
 
   /* - - - - - - - - - - - - - - - - - - - *
    * difference data handling
@@ -3844,32 +3914,6 @@ smapsfilt_diff(smapsfilt_t *self, const char *path,
   int         diff_cnt = 0;
   int         diff_max = 256;
   diffkey_t **diff_tab = calloc(diff_max, sizeof *diff_tab);
-
-  auto void diff_ins(const diffkey_t *key, const diffval_t *val, int cap)
-  {
-    for( int lo = 0, hi = diff_cnt;; )
-    {
-      if( lo == hi )
-      {
-        if( diff_cnt == diff_max )
-        {
-          diff_tab = realloc(diff_tab, (diff_max *= 2) * sizeof *diff_tab);
-        }
-        memmove(&diff_tab[lo+1], &diff_tab[lo+0],
-                (diff_cnt - lo) * sizeof *diff_tab);
-        diff_cnt += 1;
-        diff_tab[lo] = diffkey_create(key);
-        diffval_add(diffkey_val(diff_tab[lo],cap), val);
-        break;
-      }
-      int i = (lo + hi) / 2;
-      int r = diffkey_compare(diff_tab[i], key);
-      if( r < 0 ) { lo = i + 1; continue; }
-      if( r > 0 ) { hi = i + 0; continue; }
-      diffval_add(diffkey_val(diff_tab[i],cap), val);
-      break;
-    }
-  }
 
   symtab_t *appl_tab = symtab_create();
   symtab_t *type_tab = symtab_create();
@@ -4029,7 +4073,7 @@ smapsfilt_diff(smapsfilt_t *self, const char *path,
         val.sha = mapp->smapsmapp_mem.Shared_Dirty;
         val.cln = (mapp->smapsmapp_mem.Shared_Clean +
                    mapp->smapsmapp_mem.Private_Clean);
-        diff_ins(&key, &val, i);
+        diff_ins(&key, &val, i, diff_cnt, diff_max, diff_tab);
       }
     }
   }
@@ -4053,7 +4097,41 @@ smapsfilt_diff(smapsfilt_t *self, const char *path,
     perror(path); goto cleanup;
   }
 
-  auto void diff_emit_table(void)
+  for( size_t i = 0; i < diff_cnt; ++i )
+  {
+    diffkey_t *k = diff_tab[i];
+    if( diffkey_rank(k, &val) >= min_rank )
+    {
+      double d[k->cnt];
+      if( val.pri >= min_rank )
+      {
+        for( int j = 0; j < k->cnt; ++j ) {
+          d[j] = diffkey_val(k, j)->pri;
+        }
+	diff_emit_entry(k, "pri", val.pri, d, out_row, &out_cnt, out_dta,
+                        appl_str, type_str, path_str);
+      }
+      if( val.sha >= min_rank )
+      {
+        for( int j = 0; j < k->cnt; ++j ) {
+          d[j] = diffkey_val(k, j)->sha;
+        }
+	diff_emit_entry(k, "sha", val.sha, d, out_row, &out_cnt, out_dta,
+                        appl_str, type_str, path_str);
+      }
+      if( val.cln >= min_rank )
+      {
+        for( int j = 0; j < k->cnt; ++j ) {
+          d[j] = diffkey_val(k, j)->cln;
+        }
+	diff_emit_entry(k, "cln", val.cln, d, out_row, &out_cnt, out_dta,
+                        appl_str, type_str, path_str);
+      }
+    }
+    diffkey_delete(diff_tab[i]);
+  }
+
+  /* diff_emit_table(): */
   {
     if( trim_cols > 0 )
     {
@@ -4206,56 +4284,6 @@ smapsfilt_diff(smapsfilt_t *self, const char *path,
     }
   }
 
-  auto void diff_emit_entry(diffkey_t *k, const char *name,
-                            double rank, const double *data)
-  {
-    char **out = calloc(out_dta, sizeof *out);
-    if( k->appl >= 0 ) xstrfmt(&out[0], "%s", appl_str[k->appl]);
-    if( k->inst >= 0 ) xstrfmt(&out[1], "%d", k->inst);
-    if( k->type >= 0 ) xstrfmt(&out[2], "%s", type_str[k->type]);
-    if( k->path >= 0 ) xstrfmt(&out[3], "%s", path_str[k->path]);
-    xstrfmt(&out[4],"%s", name);
-    for( int j = 0; j < k->cnt; ++j )
-    {
-      xstrfmt(&out[5+j], "%g", data[j]);
-    }
-    xstrfmt(&out[5+k->cnt], "%.1f\n", rank);
-    out_row[out_cnt++] = out;
-  }
-
-  for( size_t i = 0; i < diff_cnt; ++i )
-  {
-    diffkey_t *k = diff_tab[i];
-    if( diffkey_rank(k, &val) >= min_rank )
-    {
-      double d[k->cnt];
-      if( val.pri >= min_rank )
-      {
-        for( int j = 0; j < k->cnt; ++j ) {
-          d[j] = diffkey_val(k, j)->pri;
-        }
-        diff_emit_entry(k, "pri", val.pri, d);
-      }
-      if( val.sha >= min_rank )
-      {
-        for( int j = 0; j < k->cnt; ++j ) {
-          d[j] = diffkey_val(k, j)->sha;
-        }
-        diff_emit_entry(k, "sha", val.sha, d);
-      }
-      if( val.cln >= min_rank )
-      {
-        for( int j = 0; j < k->cnt; ++j ) {
-          d[j] = diffkey_val(k, j)->cln;
-        }
-        diff_emit_entry(k, "cln", val.cln, d);
-      }
-    }
-    diffkey_delete(diff_tab[i]);
-  }
-
-  diff_emit_table();
-
   error = 0;
 
   cleanup:
@@ -4268,7 +4296,6 @@ smapsfilt_diff(smapsfilt_t *self, const char *path,
   if( file != 0 ) fclose(file);
 
   return error;
-
 }
 
 /* ------------------------------------------------------------------------- *
