@@ -3200,7 +3200,9 @@ analyze_emit_application_table(analyze_t *self, FILE *file, const char *work)
   qsort(lut, self->nappls, sizeof *lut, analyze_emit_application_table_cmp);
 
   fprintf(file, "<table border=1>\n");
-  int N = 20; N = (self->nappls + N-1)/N, N = (self->nappls + N-1)/N;
+  int N = 20;
+  N = (self->nappls + N-1)/N;
+  if (N) N = (self->nappls + N-1)/N;
   for( int i = 0; i < self->nappls; ++i )
   {
     int a = lut[i];
@@ -3268,7 +3270,9 @@ analyze_emit_library_table(analyze_t *self, FILE *file, const char *work)
   qsort(lut, self->npaths, sizeof *lut, analyze_emit_library_table_cmp);
 
   fprintf(file, "<table border=1>\n");
-  int N = 20; N = (self->npaths + N-1)/N, N = (self->npaths + N-1)/N;
+  int N = 20;
+  N = (self->npaths + N-1)/N;
+  if (N) N = (self->npaths + N-1)/N;
   for( int i = 0; i < self->npaths; ++i )
   {
     int a = lut[i];
