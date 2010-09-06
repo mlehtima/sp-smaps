@@ -3628,6 +3628,7 @@ smapsfilt_ctor(smapsfilt_t *self)
 void
 smapsfilt_dtor(smapsfilt_t *self)
 {
+  str_array_dtor(&self->smapsfilt_inputs);
   array_dtor(&self->smapsfilt_snaplist);
 }
 
