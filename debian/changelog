@@ -1,3 +1,11 @@
+sp-smaps (0.2.4) unstable; urgency=low
+
+  * Remove nested functions in sp_smaps_filter.c, fixes executable stack and
+    some crashes seen when running under ARM qemu.
+  * Fix crash when trying to process non-existent input files.
+
+ -- Tommi Rantala <ext-tommi.1.rantala@nokia.com>  Mon, 06 Sep 2010 10:41:36 +0300
+
 sp-smaps (0.2.3) unstable; urgency=low
 
   * Add manual pages for all binaries in the sp-smaps-visualize package.
