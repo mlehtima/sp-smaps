@@ -4,17 +4,22 @@ usage ()
 {
 	name=${0##*/}
 	echo
-	echo "$name <mapped file/mapping name> <value type> <SMAPS snapshot file>"
+	echo "$name <mapped file|mapping name> <SMAPS field> <SMAPS snapshot file>"
 	echo
 	echo "Shows size-sorted totals for given mapping for all the processes"
 	echo "in the given SMAPS snapshot file."
 	echo
-	echo "Mappings value type should be one of the SMAPS headings:"
-	echo "  Size, RSS, PSS, Shared_Clean, Shared_Dirty,"
+	echo "SMAPS field should be one of:"
+	echo "  Size, Rss, Pss, Shared_Clean, Shared_Dirty,"
 	echo "  Private_Clean, Private_Dirty, Referenced, Swap."
 	echo
-	echo "Example:"
-	echo "  $name '\[heap\]' Size smaps.cap"
+	echo "Examples:"
+	echo "- what processes use most RAM:"
+	echo "  $name '.*' Pss smaps.cap | sort -n"
+	echo "- what processes are most on swap:"
+	echo "  $name '.*' Swap smaps.cap | sort -n"
+	echo "- what processes have largest heaps:"
+	echo "  $name '\[heap\]' Size smaps.cap | sort -n"
 	echo
 	echo "ERROR: $1!"
 	echo
@@ -24,16 +29,16 @@ usage ()
 if [ $# -ne 3 ]; then
 	usage "wrong number of arguments"
 fi
-if [ -z $(echo "$2"|fgrep -e Size -e RSS -e PSS -e Shared_Clean -e Shared_Dirty -e Private_Clean -e Private_Dirty -e Referenced -e Swap) ]; then
+if [ -z $(echo "$2"|fgrep -e Size -e Rss -e Pss -e Shared_Clean -e Shared_Dirty -e Private_Clean -e Private_Dirty -e Referenced -e Swap) ]; then
 	usage "unknown SMAPS mapping value type"
 fi
-if [ \! -f $3 ]; then
+if [ \! -f "$3" ]; then
 	usage "file '$2' doesn't exist"
 fi
 
-mapping=$1
-field=$2
-file=$3
+mapping="$1"
+field="$2"
+file="$3"
 
 heading="Size:\t\tPID:\tName:\n"
 
@@ -57,11 +62,11 @@ function mapping_usage () {
 	pid = $2;
 }
 # hex address range, stuff, mapping name
-/^[0-9a-f]+-[0-9a-f].*'$mapping'/ {
+/^[0-9a-f]+-[0-9a-f].*'"$mapping"'/ {
 	mapping = 1;
 	map = $6;
 }
-/^'$field':/ {
+/^'"$field"':/ {
 	if (mapping > 0) {
 		mapping = 0;
 		size += $2;
@@ -70,11 +75,11 @@ function mapping_usage () {
 END {
 	mapping_usage();
 }
-' $file|sort -n
+' "$file"|sort -n
 printf $heading
 
-if [ \! -z $(echo $1|fgrep -e '[' -e ']' -e '*' -e '+' -e '.') ]; then
+if [ \! -z "$(echo \"$mapping\"|fgrep -e '[' -e ']' -e '*' -e '+' -e '.')" ]; then
 	echo
-	echo "WARNING: mapping name '$1' contained regular expression special characters."
+	echo "WARNING: mapping name '$mapping' contained regular expression special characters."
 	echo "If results look unexpected, make sure these characters were escaped properly!"
 fi
