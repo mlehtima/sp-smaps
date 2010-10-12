@@ -36,7 +36,7 @@ if [ \! -f "$3" ]; then
 	usage "file '$2' doesn't exist"
 fi
 
-mapping="$1"
+mapping=$(echo "$1"|sed 's%/%\\/%g')
 field="$2"
 file="$3"
 
