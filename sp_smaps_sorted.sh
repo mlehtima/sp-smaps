@@ -15,11 +15,11 @@ usage ()
 	echo
 	echo "Examples:"
 	echo "- what processes use most RAM:"
-	echo "  $name '.*' Pss smaps.cap | sort -n"
+	echo "  $name '.*' Pss smaps.cap"
 	echo "- what processes are most on swap:"
-	echo "  $name '.*' Swap smaps.cap | sort -n"
+	echo "  $name '.*' Swap smaps.cap"
 	echo "- what processes have largest heaps:"
-	echo "  $name '\[heap\]' Size smaps.cap | sort -n"
+	echo "  $name '\[heap\]' Size smaps.cap"
 	echo
 	echo "ERROR: $1!"
 	echo
