@@ -25,6 +25,8 @@ usage ()
 	echo "  $name '.*' Swap smaps.cap"
 	echo "- what processes have largest heaps:"
 	echo "  $name '\[heap\]' Size smaps.cap"
+	echo "- what processes have largest total of shared memory segments:"
+	echo "  $name SYSV Size smaps.cap"
 	echo "- which processes' executable code sections are writable:"
 	echo "  $name ' rwxp ' Size smaps.cap"
 	echo "- total of given sized anonymous allocs (unnamed mappings) in processes:"
