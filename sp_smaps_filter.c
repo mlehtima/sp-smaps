@@ -3211,8 +3211,22 @@ analyze_emit_application_table(analyze_t *self, FILE *file, const char *work)
     fprintf(file, "<tr>\n");
     fprintf(file,
             "<th bgcolor=\"#bfffff\" align=left>"
-            "<a href=\"%s/app%03d.html\">%s</a>\n",
-            work, a, self->sappl[a]);
+            "<a href=\"%s/app%03d.html\">",
+            work, a);
+    if( strlen(self->sappl[a]) < 60 )
+    {
+      fprintf(file, "%s", self->sappl[a]);
+    }
+    else
+    {
+      fprintf(file, "<abbr title=\"%s\">", self->sappl[a]);
+      for( int j = 0; j < 60; ++j )
+      {
+        fprintf(file, "%c", self->sappl[a][j]);
+      }
+      fprintf(file, "&#0133;</abbr>"); /* ellipsis */
+    }
+    fprintf(file, "</a>\n");
 
     meminfo_t *s = analyze_app_mem(self, a, 0);
 
