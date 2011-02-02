@@ -2876,7 +2876,7 @@ analyze_emit_lib_html(analyze_t *self, smapssnap_t *snap, const char *work)
 
         const char *bg = (((i-base)/3)&1) ? D1 : D2;
         fprintf(file, "<td%s align=left>%s\n", bg, m->smapsmapp_map.type);
-        fprintf(file, "<td%s align=left>%s\n", bg, m->smapsmapp_map.prot);
+        fprintf(file, "<td%s align=left style='font-family: monospace;'>%s\n", bg, m->smapsmapp_map.prot);
         fprintf(file, "<td%s align=right>%s\n", bg, uval(m->smapsmapp_mem.Size));
         fprintf(file, "<td%s align=right>%s\n", bg, uval(m->smapsmapp_mem.Rss));
         fprintf(file, "<td%s align=right>%s\n", bg, uval(m->smapsmapp_mem.Private_Dirty));
@@ -3028,7 +3028,7 @@ analyze_emit_app_html(analyze_t *self, smapssnap_t *snap, const char *work)
         const char *bg = (((i-base)/3)&1) ? D1 : D2;
 
         fprintf(file, "<td%s align=left>%s\n", bg, m->smapsmapp_map.type);
-        fprintf(file, "<td%s align=left>%s\n", bg, m->smapsmapp_map.prot);
+        fprintf(file, "<td%s align=left style='font-family: monospace;'>%s\n", bg, m->smapsmapp_map.prot);
         fprintf(file, "<td%s align=right>%s\n", bg, uval(m->smapsmapp_mem.Size));
         fprintf(file, "<td%s align=right>%s\n", bg, uval(m->smapsmapp_mem.Rss));
         fprintf(file, "<td%s align=right>%s\n", bg, uval(m->smapsmapp_mem.Private_Dirty));
