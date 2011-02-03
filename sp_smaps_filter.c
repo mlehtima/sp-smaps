@@ -3392,7 +3392,12 @@ analyze_emit_main_page(analyze_t *self, smapssnap_t *snap, const char *path)
    * memory usage tables
    * - - - - - - - - - - - - - - - - - - - */
 
-  fprintf(file, "<h1>System Estimates</h1>\n");
+  fprintf(file, "<a href=\"#system_estimates\">System Estimates</a> | ");
+  fprintf(file, "<a href=\"#process_hierarchy\">Process Hierarchy</a> | ");
+  fprintf(file, "<a href=\"#application_values\">Application Values</a> | ");
+  fprintf(file, "<a href=\"#object_values\">Object Values</a>\n");
+
+  fprintf(file, "<a name=\"system_estimates\"><h1>System Estimates</h1></a>\n");
 
   fprintf(file, "<h2>System: Memory Use Estimate</h2>\n");
   analyze_emit_smaps_table(self, file, self->sysest);
@@ -3410,21 +3415,21 @@ analyze_emit_main_page(analyze_t *self, smapssnap_t *snap, const char *path)
    * process hierarchy tree
    * - - - - - - - - - - - - - - - - - - - */
 
-  fprintf(file, "<h1>Process Hierarchy</h1>\n");
+  fprintf(file, "<a name=\"process_hierarchy\"><h1>Process Hierarchy</h1></a>\n");
   analyze_emit_process_hierarchy(self, file, &snap->smapssnap_rootproc, work);
 
   /* - - - - - - - - - - - - - - - - - - - *
    * application table
    * - - - - - - - - - - - - - - - - - - - */
 
-  fprintf(file, "<h1>Application Values</h1>\n");
+  fprintf(file, "<a name=\"application_values\"><h1>Application Values</h1></a>\n");
   analyze_emit_application_table(self, file, work);
 
   /* - - - - - - - - - - - - - - - - - - - *
    * library table
    * - - - - - - - - - - - - - - - - - - - */
 
-  fprintf(file, "<h1>Object Values</h1>\n");
+  fprintf(file, "<a name=\"object_values\"><h1>Object Values</h1></a>\n");
   analyze_emit_library_table(self, file, work);
 
   /* - - - - - - - - - - - - - - - - - - - *
