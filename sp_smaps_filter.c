@@ -3179,6 +3179,7 @@ analyze_emit_application_table_cmp(const void *a1, const void *a2)
   const meminfo_t *m2 = analyze_app_mem(self, *(const int *)a2, 0);
 
   int r;
+  if( (r = m2->Pss           - m1->Pss) != 0 ) return r;
   if( (r = m2->Private_Dirty - m1->Private_Dirty) != 0 ) return r;
   if( (r = m2->Shared_Dirty  - m1->Shared_Dirty) != 0 ) return r;
   if( (r = m2->Rss           - m1->Rss) != 0 ) return r;
@@ -3263,6 +3264,7 @@ analyze_emit_library_table_cmp(const void *a1, const void *a2)
   const meminfo_t *m1 = analyze_lib_mem(self, *(const int *)a1, 0);
   const meminfo_t *m2 = analyze_lib_mem(self, *(const int *)a2, 0);
   int r;
+  if( (r = m2->Pss           - m1->Pss) != 0 ) return r;
   if( (r = m2->Private_Dirty - m1->Private_Dirty) != 0 ) return r;
   if( (r = m2->Shared_Dirty  - m1->Shared_Dirty) != 0 ) return r;
   if( (r = m2->Rss           - m1->Rss) != 0 ) return r;
@@ -3469,6 +3471,7 @@ analyze_emit_appval_table_cmp(const void *a1, const void *a2)
   const meminfo_t *m2 = analyze_app_mem(self, l2->id, 0);
 
   int r;
+  if( (r = m2->Pss           - m1->Pss) != 0 ) return r;
   if( (r = m2->Private_Dirty - m1->Private_Dirty) != 0 ) return r;
   if( (r = m2->Shared_Dirty  - m1->Shared_Dirty) != 0 ) return r;
   if( (r = m2->Rss           - m1->Rss) != 0 ) return r;
