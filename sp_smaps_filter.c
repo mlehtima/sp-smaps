@@ -2658,7 +2658,7 @@ analyze_emit_page_table(analyze_t *self, FILE *file, const meminfo_t *mtab)
   fprintf(file, "<tr>\n");
   fprintf(file, "<th rowspan=2>\n");
   fprintf(file, "<th"TP"colspan=2>%s\n", "Dirty");
-  fprintf(file, "<th"TP"rowspan=2>%s\n", "Clean");
+  fprintf(file, "<th"TP"colspan=2>%s\n", "Clean");
   fprintf(file, "<th"TP"rowspan=2>%s\n", "Resident");
   fprintf(file, "<th"TP"rowspan=2>%s\n", "Size");
   fprintf(file, "<th"TP"rowspan=2>%s\n", "COW");
@@ -2667,6 +2667,8 @@ analyze_emit_page_table(analyze_t *self, FILE *file, const meminfo_t *mtab)
   fprintf(file, "<th"TP"rowspan=2>%s\n", "Referenced");
 
   fprintf(file, "<tr>\n");
+  fprintf(file, "<th"TP">%s\n", "Private");
+  fprintf(file, "<th"TP">%s\n", "Shared");
   fprintf(file, "<th"TP">%s\n", "Private");
   fprintf(file, "<th"TP">%s\n", "Shared");
 
@@ -2679,8 +2681,8 @@ analyze_emit_page_table(analyze_t *self, FILE *file, const meminfo_t *mtab)
     fprintf(file, "<th"LT" align=left>%s\n", self->stype[t]);
     fprintf(file, "<td %s align=right>%s\n", bg, uval(m->Private_Dirty));
     fprintf(file, "<td %s align=right>%s\n", bg, uval(m->Shared_Dirty));
-    fprintf(file, "<td %s align=right>%s\n", bg, uval(m->Private_Clean +
-                                                      m->Shared_Clean));
+    fprintf(file, "<td %s align=right>%s\n", bg, uval(m->Private_Clean));
+    fprintf(file, "<td %s align=right>%s\n", bg, uval(m->Shared_Clean));
     fprintf(file, "<td %s align=right>%s\n", bg, uval(m->Rss));
     fprintf(file, "<td %s align=right>%s\n", bg, uval(m->Size));
     fprintf(file, "<td %s align=right>%s\n", bg, uval(meminfo_cowest(m)));
@@ -2700,22 +2702,18 @@ void
 analyze_emit_xref_header(analyze_t *self, FILE *file, const char *type)
 {
   fprintf(file, "<tr>\n");
-  fprintf(file, "<th"TP"rowspan=2>%s\n", type);
-  fprintf(file, "<th"TP"rowspan=2>%s\n", "Type");
-  fprintf(file, "<th"TP"rowspan=2>%s\n", "Prot");
-  fprintf(file, "<th"TP"rowspan=2>%s\n", "Size");
-  fprintf(file, "<th"TP"rowspan=2>%s\n", "Rss");
-  fprintf(file, "<th"TP"colspan=2>%s\n", "Dirty");
-  fprintf(file, "<th"TP"colspan=2>%s\n", "Clean");
-  fprintf(file, "<th"TP"rowspan=2>%s\n", "Pss");
-  fprintf(file, "<th"TP"rowspan=2>%s\n", "Swap");
-  fprintf(file, "<th"TP"rowspan=2>%s\n", "Referenced");
-
-  fprintf(file, "<tr>\n");
-  fprintf(file, "<th"TP">%s\n", "Private");
-  fprintf(file, "<th"TP">%s\n", "Shared");
-  fprintf(file, "<th"TP">%s\n", "Private");
-  fprintf(file, "<th"TP">%s\n", "Shared");
+  fprintf(file, "<th"TP">%s\n", type);
+  fprintf(file, "<th"TP">%s\n", "Type");
+  fprintf(file, "<th"TP">%s\n", "Prot");
+  fprintf(file, "<th"TP">%s\n", "Size");
+  fprintf(file, "<th"TP">%s\n", "Rss");
+  fprintf(file, "<th"TP">%s\n", "Dirty<br>Private");
+  fprintf(file, "<th"TP">%s\n", "Dirty<br>Shared");
+  fprintf(file, "<th"TP">%s\n", "Clean<br>Private");
+  fprintf(file, "<th"TP">%s\n", "Clean<br>Shared");
+  fprintf(file, "<th"TP">%s\n", "Pss");
+  fprintf(file, "<th"TP">%s\n", "Swap");
+  fprintf(file, "<th"TP">%s\n", "Referenced");
 }
 
 /* ------------------------------------------------------------------------- *
@@ -3074,7 +3072,7 @@ analyze_emit_smaps_table(analyze_t *self, FILE *file, meminfo_t *v)
   fprintf(file, "<tr>\n");
   fprintf(file, "<th"TP"rowspan=2>%s\n", "Class");
   fprintf(file, "<th"TP"colspan=2>%s\n", "Dirty");
-  fprintf(file, "<th"TP"rowspan=2>%s\n", "Clean");
+  fprintf(file, "<th"TP"colspan=2>%s\n", "Clean");
   fprintf(file, "<th"TP"rowspan=2>%s\n", "Resident");
   fprintf(file, "<th"TP"rowspan=2>%s\n", "Size");
   fprintf(file, "<th"TP"rowspan=2>%s\n", "COW");
@@ -3083,6 +3081,8 @@ analyze_emit_smaps_table(analyze_t *self, FILE *file, meminfo_t *v)
   fprintf(file, "<th"TP"rowspan=2>%s\n", "Referenced");
 
   fprintf(file, "<tr>\n");
+  fprintf(file, "<th"TP">%s\n", "Private");
+  fprintf(file, "<th"TP">%s\n", "Shared");
   fprintf(file, "<th"TP">%s\n", "Private");
   fprintf(file, "<th"TP">%s\n", "Shared");
 
@@ -3095,8 +3095,8 @@ analyze_emit_smaps_table(analyze_t *self, FILE *file, meminfo_t *v)
     fprintf(file, "<th"LT" align=left>%s\n", self->stype[t]);
     fprintf(file, "<td %s align=right>%s\n", bg, uval(m->Private_Dirty));
     fprintf(file, "<td %s align=right>%s\n", bg, uval(m->Shared_Dirty));
-    fprintf(file, "<td %s align=right>%s\n", bg, uval(m->Private_Clean +
-                                                      m->Shared_Clean));
+    fprintf(file, "<td %s align=right>%s\n", bg, uval(m->Private_Clean));
+    fprintf(file, "<td %s align=right>%s\n", bg, uval(m->Shared_Clean));
     fprintf(file, "<td %s align=right>%s\n", bg, uval(m->Rss));
     fprintf(file, "<td %s align=right>%s\n", bg, uval(m->Size));
     fprintf(file, "<td %s align=right>%s\n", bg, uval(meminfo_cowest(m)));
@@ -3117,7 +3117,7 @@ analyze_emit_table_header(analyze_t *self, FILE *file, const char *title)
 {
   fprintf(file, "<tr>\n");
   fprintf(file, "<th"TP" rowspan=3>%s\n", title);
-  fprintf(file, "<th"TP" colspan=3>%s\n", "RSS / Status");
+  fprintf(file, "<th"TP" colspan=4>%s\n", "RSS / Status");
   fprintf(file, "<th"TP" rowspan=2 colspan=5>%s\n", "Virtual<br>Memory");
   fprintf(file, "<th"TP" rowspan=3>%s\n", "RSS<br>COW<br>Est.");
   fprintf(file, "<th"TP" colspan=%d>%s\n", self->ntypes-1, "RSS / Class");
@@ -3125,12 +3125,14 @@ analyze_emit_table_header(analyze_t *self, FILE *file, const char *title)
   fprintf(file, "<tr>\n");
 
   fprintf(file, "<th"TP" colspan=2>%s\n", "Dirty");
-  fprintf(file, "<th"TP" rowspan=2>%s\n", "Clean");
+  fprintf(file, "<th"TP" colspan=2>%s\n", "Clean");
   for( int i = 1; i < self->ntypes; ++i )
   {
     fprintf(file, "<th"TP" rowspan=2>%s\n", self->stype[i]);
   }
   fprintf(file, "<tr>\n");
+  fprintf(file, "<th"TP">%s\n", "Private");
+  fprintf(file, "<th"TP">%s\n", "Shared");
   fprintf(file, "<th"TP">%s\n", "Private");
   fprintf(file, "<th"TP">%s\n", "Shared");
   fprintf(file, "<th"TP">%s\n", "RSS");
@@ -3235,7 +3237,8 @@ analyze_emit_application_table(analyze_t *self, FILE *file, const char *work)
 
     fprintf(file, "<td %s align=right>%s\n", bg, uval(s->Private_Dirty));
     fprintf(file, "<td %s align=right>%s\n", bg, uval(s->Shared_Dirty));
-    fprintf(file, "<td %s align=right>%s\n", bg, uval(s->Private_Clean + s->Shared_Clean));
+    fprintf(file, "<td %s align=right>%s\n", bg, uval(s->Private_Clean));
+    fprintf(file, "<td %s align=right>%s\n", bg, uval(s->Shared_Clean));
     fprintf(file, "<td %s align=right>%s\n", bg, uval(s->Rss));
     fprintf(file, "<td %s align=right>%s\n", bg, uval(s->Size));
     fprintf(file, "<td %s align=right>%s\n", bg, uval(s->Pss));
@@ -3305,7 +3308,8 @@ analyze_emit_library_table(analyze_t *self, FILE *file, const char *work)
 
     fprintf(file, "<td %s align=right>%s\n", bg, uval(s->Private_Dirty));
     fprintf(file, "<td %s align=right>%s\n", bg, uval(s->Shared_Dirty));
-    fprintf(file, "<td %s align=right>%s\n", bg, uval(s->Private_Clean + s->Shared_Clean));
+    fprintf(file, "<td %s align=right>%s\n", bg, uval(s->Private_Clean));
+    fprintf(file, "<td %s align=right>%s\n", bg, uval(s->Shared_Clean));
     fprintf(file, "<td %s align=right>%s\n", bg, uval(s->Rss));
     fprintf(file, "<td %s align=right>%s\n", bg, uval(s->Size));
     fprintf(file, "<td %s align=right>%s\n", bg, uval(s->Pss));
