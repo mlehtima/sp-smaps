@@ -2850,7 +2850,7 @@ analyze_emit_lib_html(analyze_t *self, smapssnap_t *snap, const char *work)
 
     analyze_get_librange(self, 0, self->mapp_tab->size, &alo, &ahi, l);
 
-    for( int base=alo; alo < ahi; alo = bhi )
+    for( int base=alo, rows_out=0; alo < ahi; alo = bhi )
     {
       m = self->mapp_tab->data[alo];
       a = m->smapsmapp_AID;
@@ -2885,7 +2885,14 @@ analyze_emit_lib_html(analyze_t *self, smapssnap_t *snap, const char *work)
         fprintf(file, "<td%s align=right>%s\n", bg, uval(m->smapsmapp_mem.Swap));
         fprintf(file, "<td%s align=right>%s\n", bg, uval(m->smapsmapp_mem.Referenced));
       }
+      rows_out += bhi-blo;
+      if( rows_out > 25 )
+      {
+        analyze_emit_xref_header(self, file, "Application");
+        rows_out = 0;
+      }
     }
+    analyze_emit_xref_header(self, file, "Application");
 
     fprintf(file, "</table>\n");
 
@@ -3001,7 +3008,7 @@ analyze_emit_app_html(analyze_t *self, smapssnap_t *snap, const char *work)
 
     analyze_get_apprange(self, 0, self->mapp_tab->size, &alo, &ahi, a);
 
-    for( int base=alo; alo < ahi; alo = bhi )
+    for( int base=alo, rows_out=0; alo < ahi; alo = bhi )
     {
       m = self->mapp_tab->data[alo];
       l = m->smapsmapp_LID;
@@ -3037,7 +3044,14 @@ analyze_emit_app_html(analyze_t *self, smapssnap_t *snap, const char *work)
         fprintf(file, "<td%s align=right>%s\n", bg, uval(m->smapsmapp_mem.Swap));
         fprintf(file, "<td%s align=right>%s\n", bg, uval(m->smapsmapp_mem.Referenced));
       }
+      rows_out += bhi-blo;
+      if( rows_out > 25 )
+      {
+        analyze_emit_xref_header(self, file, "Object");
+        rows_out = 0;
+      }
     }
+    analyze_emit_xref_header(self, file, "Object");
 
     fprintf(file, "</table>\n");
 
