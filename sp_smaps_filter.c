@@ -79,6 +79,8 @@
 #define TOOL_NAME "sp_smaps_filter"
 #include "release.h"
 
+#define HTML_DOWN_ARROW "&#x25BE;"
+
 /* ------------------------------------------------------------------------- *
  * Runtime Manual
  * ------------------------------------------------------------------------- */
@@ -2695,7 +2697,7 @@ analyze_emit_xref_header(const analyze_t *self, FILE *file, enum emit_type type)
   fprintf(file, "<th"TP">%s\n", "Dirty<br>Shared");
   fprintf(file, "<th"TP">%s\n", "Clean<br>Private");
   fprintf(file, "<th"TP">%s\n", "Clean<br>Shared");
-  fprintf(file, "<th"TP">%s\n", "Pss");
+  fprintf(file, "<th"TP">%s %s\n", "Pss", HTML_DOWN_ARROW);
   fprintf(file, "<th"TP">%s\n", "Swap");
   fprintf(file, "<th"TP">%s\n", "Referenced");
 }
@@ -3114,14 +3116,14 @@ static const char *const virtual_memory_column_titles[][5] = {
   [EMIT_TYPE_LIBRARY] = {
     "<abbr title=\"Largest value\"><i>RSS</i></abbr>",
     "<abbr title=\"Largest value\"><i>Size</i></abbr>",
-    "<abbr title=\"Sum of values\">PSS</abbr> ",
+    "<abbr title=\"Sum of values\">PSS</abbr> " HTML_DOWN_ARROW,
     "<abbr title=\"Largest value\"><i>Swap</i></abbr>",
     "<abbr title=\"Largest value\"><i>Referenced</i></abbr>",
   },
   [EMIT_TYPE_APPLICATION] = {
     "RSS",
     "Size",
-    "PSS ",
+    "PSS " HTML_DOWN_ARROW,
     "Swap",
     "Referenced",
   },
