@@ -2820,14 +2820,14 @@ analyze_emit_lib_html(analyze_t *self, smapssnap_t *snap, const char *work)
      * summary table
      * - - - - - - - - - - - - - - - - - - - */
 
-    fprintf(file, "<h1>%s: %s</h1>\n", "Library", self->spath[l]);
+    fprintf(file, "<h1>%s: %s</h1>\n", emit_type_titles[EMIT_TYPE_LIBRARY], self->spath[l]);
     analyze_emit_page_table(self, file, analyze_lib_mem(self, l, 0));
 
     /* - - - - - - - - - - - - - - - - - - - *
      * application xref
      * - - - - - - - - - - - - - - - - - - - */
 
-    fprintf(file, "<h1>%s XREF</h1>\n", "Application");
+    fprintf(file, "<h1>%s XREF</h1>\n", emit_type_titles[EMIT_TYPE_APPLICATION]);
     fprintf(file, "<table border=1>\n");
 
     analyze_emit_xref_header(self, file, EMIT_TYPE_APPLICATION);
@@ -2978,7 +2978,7 @@ analyze_emit_app_html(analyze_t *self, smapssnap_t *snap, const char *work)
      * summary table
      * - - - - - - - - - - - - - - - - - - - */
 
-    fprintf(file, "<h1>%s: %s</h1>\n", "Application", self->sappl[a]);
+    fprintf(file, "<h1>%s: %s</h1>\n", emit_type_titles[EMIT_TYPE_APPLICATION], self->sappl[a]);
     analyze_emit_page_table(self, file, analyze_app_mem(self, a, 0));
 
     /* - - - - - - - - - - - - - - - - - - - *
