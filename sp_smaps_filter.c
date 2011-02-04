@@ -2864,8 +2864,8 @@ analyze_emit_lib_html(analyze_t *self, smapssnap_t *snap, const char *work)
         {
           fprintf(file,
                   "<th"LT"rowspan=%d align=left>"
-                  "<a href=\"lib%03d.html\">%s</a>\n",
-                  bhi-blo, l, path_basename(self->sappl[a]));
+                  "<a href=\"app%03d.html\">%s</a>\n",
+                  bhi-blo, a, path_basename(self->sappl[a]));
         }
 
         const char *bg = (((i-base)/3)&1) ? D1 : D2;
