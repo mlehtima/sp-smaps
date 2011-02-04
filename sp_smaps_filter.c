@@ -2635,7 +2635,7 @@ analyze_emit_page_table(analyze_t *self, FILE *file, const meminfo_t *mtab)
   fprintf(file, "<th"TP"colspan=2>%s\n", "Clean");
   fprintf(file, "<th"TP"rowspan=2>%s\n", "Resident");
   fprintf(file, "<th"TP"rowspan=2>%s\n", "Size");
-  fprintf(file, "<th"TP"rowspan=2>%s\n", "COW");
+  fprintf(file, "<th"TP"rowspan=2>%s\n", "<abbr title=\"Shared Clean + Shared Dirty\">COW</abbr>");
   fprintf(file, "<th"TP"rowspan=2>%s\n", "Pss");
   fprintf(file, "<th"TP"rowspan=2>%s\n", "Swap");
   fprintf(file, "<th"TP"rowspan=2>%s\n", "Referenced");
@@ -3063,7 +3063,7 @@ analyze_emit_smaps_table(analyze_t *self, FILE *file, meminfo_t *v)
   fprintf(file, "<th"TP"colspan=2>%s\n", "Clean");
   fprintf(file, "<th"TP"rowspan=2>%s\n", "Resident");
   fprintf(file, "<th"TP"rowspan=2>%s\n", "Size");
-  fprintf(file, "<th"TP"rowspan=2>%s\n", "COW");
+  fprintf(file, "<th"TP"rowspan=2>%s\n", "<abbr title=\"Shared Clean + Shared Dirty\">COW</abbr>");
   fprintf(file, "<th"TP"rowspan=2>%s\n", "Pss");
   fprintf(file, "<th"TP"rowspan=2>%s\n", "Swap");
   fprintf(file, "<th"TP"rowspan=2>%s\n", "Referenced");
@@ -3107,7 +3107,7 @@ analyze_emit_table_header(analyze_t *self, FILE *file, const char *title)
   fprintf(file, "<th"TP" rowspan=3>%s\n", title);
   fprintf(file, "<th"TP" colspan=4>%s\n", "RSS / Status");
   fprintf(file, "<th"TP" rowspan=2 colspan=5>%s\n", "Virtual<br>Memory");
-  fprintf(file, "<th"TP" rowspan=3>%s\n", "RSS<br>COW<br>Est.");
+  fprintf(file, "<th"TP" rowspan=3><abbr title=\"Shared Clean + Shared Dirty\">RSS<br>COW<br>Est.</abbr>\n");
   fprintf(file, "<th"TP" colspan=%d>%s\n", self->ntypes-1, "RSS / Class");
 
   fprintf(file, "<tr>\n");
