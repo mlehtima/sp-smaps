@@ -2124,6 +2124,12 @@ smapssnap_delete_cb(void *self)
 // XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 // XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 
+enum emit_type {
+  EMIT_TYPE_LIBRARY,
+  EMIT_TYPE_APPLICATION,
+  EMIT_TYPE_OBJECT,
+};
+
 /* ========================================================================= *
  * analyze_t  --  methods
  * ========================================================================= */
@@ -2220,6 +2226,17 @@ analyze_app_mem(analyze_t *self, int aid, int tid)
   assert( 0 <= aid && aid < self->nappls );
   assert( 0 <= tid && tid < self->ntypes );
   return &self->app_mem[tid + aid * self->ntypes];
+}
+
+INLINE meminfo_t *
+analyze_mem(analyze_t *self, int a, int b, enum emit_type type)
+{
+  if( type == EMIT_TYPE_LIBRARY)
+    return analyze_lib_mem(self, a, b);
+  if( type == EMIT_TYPE_APPLICATION)
+    return analyze_app_mem(self, a, b);
+  assert( 0 );
+  return NULL;
 }
 
 /* ------------------------------------------------------------------------- *
@@ -2620,12 +2637,6 @@ analyze_accumulate_data(analyze_t *self)
 #define LT " bgcolor=\"#bfffff\" "
 #define D1 " bgcolor=\"#f4f4f4\" "
 #define D2 " bgcolor=\"#ffffff\" "
-
-enum emit_type {
-  EMIT_TYPE_LIBRARY,
-  EMIT_TYPE_APPLICATION,
-  EMIT_TYPE_OBJECT,
-};
 
 static const char *const emit_type_titles[] = {
   [EMIT_TYPE_LIBRARY]         = "Library",
