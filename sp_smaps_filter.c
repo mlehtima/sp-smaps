@@ -838,13 +838,11 @@ void       analyze_delete_cb             (void *self);
 void       analyze_enumerate_data        (analyze_t *self, smapssnap_t *snap);
 void       analyze_accumulate_data       (analyze_t *self);
 void       analyze_emit_page_table       (analyze_t *self, FILE *file, const meminfo_t *mtab);
-void       analyze_emit_xref_header      (analyze_t *self, FILE *file, const char *type);
 void       analyze_get_apprange          (analyze_t *self, int lo, int hi, int *plo, int *phi, int aid);
 void       analyze_get_librange          (analyze_t *self, int lo, int hi, int *plo, int *phi, int lid);
 int        analyze_emit_lib_html         (analyze_t *self, smapssnap_t *snap, const char *work);
 int        analyze_emit_app_html         (analyze_t *self, smapssnap_t *snap, const char *work);
 void       analyze_emit_smaps_table      (analyze_t *self, FILE *file, meminfo_t *v);
-void       analyze_emit_table_header     (analyze_t *self, FILE *file, const char *title);
 void       analyze_emit_process_hierarchy(analyze_t *self, FILE *file, smapsproc_t *proc, const char *work);
 void       analyze_emit_application_table(analyze_t *self, FILE *file, const char *work);
 void       analyze_emit_library_table    (analyze_t *self, FILE *file, const char *work);
@@ -2621,6 +2619,18 @@ analyze_accumulate_data(analyze_t *self)
 #define D1 " bgcolor=\"#f4f4f4\" "
 #define D2 " bgcolor=\"#ffffff\" "
 
+enum emit_type {
+  EMIT_TYPE_LIBRARY,
+  EMIT_TYPE_APPLICATION,
+  EMIT_TYPE_OBJECT,
+};
+
+static const char *const emit_type_titles[] = {
+  [EMIT_TYPE_LIBRARY]         = "Library",
+  [EMIT_TYPE_APPLICATION]     = "Application",
+  [EMIT_TYPE_OBJECT]          = "Object",
+};
+
 /* ------------------------------------------------------------------------- *
  * analyze_emit_page_table
  * ------------------------------------------------------------------------- */
@@ -2672,11 +2682,11 @@ analyze_emit_page_table(analyze_t *self, FILE *file, const meminfo_t *mtab)
  * analyze_emit_xref_header
  * ------------------------------------------------------------------------- */
 
-void
-analyze_emit_xref_header(analyze_t *self, FILE *file, const char *type)
+static void
+analyze_emit_xref_header(const analyze_t *self, FILE *file, enum emit_type type)
 {
   fprintf(file, "<tr>\n");
-  fprintf(file, "<th"TP">%s\n", type);
+  fprintf(file, "<th"TP">%s\n", emit_type_titles[type]);
   fprintf(file, "<th"TP">%s\n", "Type");
   fprintf(file, "<th"TP">%s\n", "Prot");
   fprintf(file, "<th"TP">%s\n", "Size");
@@ -2818,7 +2828,7 @@ analyze_emit_lib_html(analyze_t *self, smapssnap_t *snap, const char *work)
     fprintf(file, "<h1>%s XREF</h1>\n", "Application");
     fprintf(file, "<table border=1>\n");
 
-    analyze_emit_xref_header(self, file, "Application");
+    analyze_emit_xref_header(self, file, EMIT_TYPE_APPLICATION);
 
     int alo,ahi, blo,bhi;
 
@@ -2862,11 +2872,11 @@ analyze_emit_lib_html(analyze_t *self, smapssnap_t *snap, const char *work)
       rows_out += bhi-blo;
       if( rows_out > 25 )
       {
-        analyze_emit_xref_header(self, file, "Application");
+        analyze_emit_xref_header(self, file, EMIT_TYPE_APPLICATION);
         rows_out = 0;
       }
     }
-    analyze_emit_xref_header(self, file, "Application");
+    analyze_emit_xref_header(self, file, EMIT_TYPE_APPLICATION);
 
     fprintf(file, "</table>\n");
 
@@ -2976,7 +2986,7 @@ analyze_emit_app_html(analyze_t *self, smapssnap_t *snap, const char *work)
     fprintf(file, "<h1>%s XREF</h1>\n", "Mapping");
     fprintf(file, "<table border=1>\n");
 
-    analyze_emit_xref_header(self, file, "Object");
+    analyze_emit_xref_header(self, file, EMIT_TYPE_OBJECT);
 
     int alo,ahi, blo,bhi;
 
@@ -3021,11 +3031,11 @@ analyze_emit_app_html(analyze_t *self, smapssnap_t *snap, const char *work)
       rows_out += bhi-blo;
       if( rows_out > 25 )
       {
-        analyze_emit_xref_header(self, file, "Object");
+        analyze_emit_xref_header(self, file, EMIT_TYPE_OBJECT);
         rows_out = 0;
       }
     }
-    analyze_emit_xref_header(self, file, "Object");
+    analyze_emit_xref_header(self, file, EMIT_TYPE_OBJECT);
 
     fprintf(file, "</table>\n");
 
@@ -3100,34 +3110,60 @@ analyze_emit_smaps_table(analyze_t *self, FILE *file, meminfo_t *v)
  * analyze_emit_table_header
  * ------------------------------------------------------------------------- */
 
-void
-analyze_emit_table_header(analyze_t *self, FILE *file, const char *title)
+static const char *const virtual_memory_column_titles[][5] = {
+  [EMIT_TYPE_LIBRARY] = {
+    "<abbr title=\"Largest value\"><i>RSS</i></abbr>",
+    "<abbr title=\"Largest value\"><i>Size</i></abbr>",
+    "<abbr title=\"Sum of values\">PSS</abbr> ",
+    "<abbr title=\"Largest value\"><i>Swap</i></abbr>",
+    "<abbr title=\"Largest value\"><i>Referenced</i></abbr>",
+  },
+  [EMIT_TYPE_APPLICATION] = {
+    "RSS",
+    "Size",
+    "PSS ",
+    "Swap",
+    "Referenced",
+  },
+};
+
+static void
+analyze_emit_table_header(const analyze_t *self, FILE *file, enum emit_type type)
 {
   fprintf(file, "<tr>\n");
-  fprintf(file, "<th"TP" rowspan=3>%s\n", title);
+  fprintf(file, "<th"TP" rowspan=3>%s\n", emit_type_titles[type]);
   fprintf(file, "<th"TP" colspan=4>%s\n", "RSS / Status");
   fprintf(file, "<th"TP" rowspan=2 colspan=5>%s\n", "Virtual<br>Memory");
   fprintf(file, "<th"TP" rowspan=3><abbr title=\"Shared Clean + Shared Dirty\">RSS<br>COW<br>Est.</abbr>\n");
   fprintf(file, "<th"TP" colspan=%d>%s\n", self->ntypes-1, "RSS / Class");
 
   fprintf(file, "<tr>\n");
-
   fprintf(file, "<th"TP" colspan=2>%s\n", "Dirty");
   fprintf(file, "<th"TP" colspan=2>%s\n", "Clean");
   for( int i = 1; i < self->ntypes; ++i )
   {
     fprintf(file, "<th"TP" rowspan=2>%s\n", self->stype[i]);
   }
+
   fprintf(file, "<tr>\n");
-  fprintf(file, "<th"TP">%s\n", "Private");
-  fprintf(file, "<th"TP">%s\n", "Shared");
-  fprintf(file, "<th"TP">%s\n", "Private");
-  fprintf(file, "<th"TP">%s\n", "Shared");
-  fprintf(file, "<th"TP">%s\n", "RSS");
-  fprintf(file, "<th"TP">%s\n", "Size");
-  fprintf(file, "<th"TP">%s\n", "PSS");
-  fprintf(file, "<th"TP">%s\n", "Swap");
-  fprintf(file, "<th"TP">%s\n", "Referenced");
+  if( type == EMIT_TYPE_LIBRARY )
+  {
+    fprintf(file, "<th"TP"><abbr title=\"Sum of values\">Private</abbr>\n");
+    fprintf(file, "<th"TP"><abbr title=\"Largest value\"><i>Shared</i></abbr>\n");
+    fprintf(file, "<th"TP"><abbr title=\"Sum of values\">Private</abbr>\n");
+    fprintf(file, "<th"TP"><abbr title=\"Largest value\"><i>Shared</i></abbr>\n");
+  }
+  else if( type == EMIT_TYPE_APPLICATION )
+  {
+    fprintf(file, "<th"TP">Private\n");
+    fprintf(file, "<th"TP">Shared\n");
+    fprintf(file, "<th"TP">Private\n");
+    fprintf(file, "<th"TP">Shared\n");
+  }
+  for( int i=0; i < sizeof(virtual_memory_column_titles[0])/sizeof(char *); ++i )
+  {
+    fprintf(file, "<th"TP">%s\n", virtual_memory_column_titles[type][i]);
+  }
 }
 
 /* ------------------------------------------------------------------------- *
@@ -3197,7 +3233,7 @@ analyze_emit_application_table(analyze_t *self, FILE *file, const char *work)
   for( int i = 0; i < self->nappls; ++i )
   {
     int a = lut[i];
-    if( i % N == 0 ) analyze_emit_table_header(self, file, "Application");
+    if( i % N == 0 ) analyze_emit_table_header(self, file, EMIT_TYPE_APPLICATION);
 
     fprintf(file, "<tr>\n");
     fprintf(file,
@@ -3283,7 +3319,7 @@ analyze_emit_library_table(analyze_t *self, FILE *file, const char *work)
   for( int i = 0; i < self->npaths; ++i )
   {
     int a = lut[i];
-    if( i % N == 0 ) analyze_emit_table_header(self, file, "Library");
+    if( i % N == 0 ) analyze_emit_table_header(self, file, EMIT_TYPE_LIBRARY);
     fprintf(file, "<tr>\n");
     fprintf(file,
             "<th bgcolor=\"#bfffff\" align=left>"
