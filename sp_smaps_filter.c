@@ -80,6 +80,7 @@
 #include "release.h"
 
 #define HTML_DOWN_ARROW "&#x25BE;"
+#define HTML_ELLIPSIS   "&#0133;"
 
 /* ------------------------------------------------------------------------- *
  * Runtime Manual
@@ -846,8 +847,6 @@ int        analyze_emit_lib_html         (analyze_t *self, smapssnap_t *snap, co
 int        analyze_emit_app_html         (analyze_t *self, smapssnap_t *snap, const char *work);
 void       analyze_emit_smaps_table      (analyze_t *self, FILE *file, meminfo_t *v);
 void       analyze_emit_process_hierarchy(analyze_t *self, FILE *file, smapsproc_t *proc, const char *work);
-void       analyze_emit_application_table(analyze_t *self, FILE *file, const char *work);
-void       analyze_emit_library_table    (analyze_t *self, FILE *file, const char *work);
 int        analyze_emit_main_page        (analyze_t *self, smapssnap_t *snap, const char *path);
 
 /* ------------------------------------------------------------------------- *
@@ -3206,10 +3205,6 @@ analyze_emit_process_hierarchy(analyze_t *self, FILE *file, smapsproc_t *proc,
   }
 }
 
-/* ------------------------------------------------------------------------- *
- * analyze_emit_application_table
- * ------------------------------------------------------------------------- */
-
 static int
 analyze_emit_application_table_cmp(const void *a1, const void *a2)
 {
@@ -3226,77 +3221,6 @@ analyze_emit_application_table_cmp(const void *a1, const void *a2)
   return m2->Size - m1->Size;
 }
 
-void
-analyze_emit_application_table(analyze_t *self, FILE *file, const char *work)
-{
-  int lut[self->nappls];
-
-  for( int i = 0; i < self->nappls; ++i )
-  {
-    lut[i] = i;
-  }
-
-  qsort_cmp_data = self;
-  qsort(lut, self->nappls, sizeof *lut, analyze_emit_application_table_cmp);
-
-  fprintf(file, "<table border=1>\n");
-  int N = 20;
-  N = (self->nappls + N-1)/N;
-  if (N) N = (self->nappls + N-1)/N;
-  for( int i = 0; i < self->nappls; ++i )
-  {
-    int a = lut[i];
-    if( i % N == 0 ) analyze_emit_table_header(self, file, EMIT_TYPE_APPLICATION);
-
-    fprintf(file, "<tr>\n");
-    fprintf(file,
-            "<th bgcolor=\"#bfffff\" align=left>"
-            "<a href=\"%s/app%03d.html\">",
-            work, a);
-    if( strlen(self->sappl[a]) < 60 )
-    {
-      fprintf(file, "%s", self->sappl[a]);
-    }
-    else
-    {
-      fprintf(file, "<abbr title=\"%s\">", self->sappl[a]);
-      for( int j = 0; j < 60; ++j )
-      {
-        fprintf(file, "%c", self->sappl[a][j]);
-      }
-      fprintf(file, "&#0133;</abbr>"); /* ellipsis */
-    }
-    fprintf(file, "</a>\n");
-
-    meminfo_t *s = analyze_app_mem(self, a, 0);
-
-    const char *bg = ((i/3)&1) ? D1 : D2;
-
-    fprintf(file, "<td %s align=right>%s\n", bg, uval(s->Private_Dirty));
-    fprintf(file, "<td %s align=right>%s\n", bg, uval(s->Shared_Dirty));
-    fprintf(file, "<td %s align=right>%s\n", bg, uval(s->Private_Clean));
-    fprintf(file, "<td %s align=right>%s\n", bg, uval(s->Shared_Clean));
-    fprintf(file, "<td %s align=right>%s\n", bg, uval(s->Rss));
-    fprintf(file, "<td %s align=right>%s\n", bg, uval(s->Size));
-    fprintf(file, "<td %s align=right>%s\n", bg, uval(s->Pss));
-    fprintf(file, "<td %s align=right>%s\n", bg, uval(s->Swap));
-    fprintf(file, "<td %s align=right>%s\n", bg, uval(s->Referenced));
-
-    fprintf(file, "<td %s align=right>%s\n", bg, uval(meminfo_cowest(s)));
-
-    for( int t = 1; t < self->ntypes; ++t )
-    {
-      meminfo_t *s = analyze_app_mem(self, a, t);
-      fprintf(file, "<td %s align=right>%s\n", bg, uval(meminfo_total(s)));
-    }
-  }
-  fprintf(file, "</table>\n");
-}
-
-/* ------------------------------------------------------------------------- *
- * analyze_emit_library_table
- * ------------------------------------------------------------------------- */
-
 static int
 analyze_emit_library_table_cmp(const void *a1, const void *a2)
 {
@@ -3312,35 +3236,63 @@ analyze_emit_library_table_cmp(const void *a1, const void *a2)
   return m2->Size - m1->Size;
 }
 
-void
-analyze_emit_library_table(analyze_t *self, FILE *file, const char *work)
+static void
+analyze_emit_table(analyze_t *self, FILE *file, const char *work, enum emit_type type)
 {
-  int lut[self->npaths];
+  int items = 0;
+  if( type == EMIT_TYPE_LIBRARY )
+    items = self->npaths;
+  else if( type == EMIT_TYPE_APPLICATION )
+    items = self->nappls;
+  int lut[items];
 
-  for( int i = 0; i < self->npaths; ++i )
+  for( int i = 0; i < items; ++i )
   {
     lut[i] = i;
   }
 
   qsort_cmp_data = self;
-  qsort(lut, self->npaths, sizeof *lut, analyze_emit_library_table_cmp);
+  if( type == EMIT_TYPE_LIBRARY )
+    qsort(lut, items, sizeof *lut, analyze_emit_library_table_cmp);
+  else if( type == EMIT_TYPE_APPLICATION )
+    qsort(lut, items, sizeof *lut, analyze_emit_application_table_cmp);
 
   fprintf(file, "<table border=1>\n");
   int N = 20;
-  N = (self->npaths + N-1)/N;
-  if (N) N = (self->npaths + N-1)/N;
-  for( int i = 0; i < self->npaths; ++i )
+  N = (items + N-1)/N;
+  if (N) N = (items + N-1)/N;
+  for( int i = 0; i < items; ++i )
   {
     int a = lut[i];
-    if( i % N == 0 ) analyze_emit_table_header(self, file, EMIT_TYPE_LIBRARY);
+    if( i % N == 0 ) analyze_emit_table_header(self, file, type);
+
     fprintf(file, "<tr>\n");
-    fprintf(file,
-            "<th bgcolor=\"#bfffff\" align=left>"
-            "<a href=\"%s/lib%03d.html\">%s</a>\n",
+    fprintf(file, "<th bgcolor=\"#bfffff\" align=left>");
+    if( type == EMIT_TYPE_LIBRARY )
+    {
+      fprintf(file, "<a href=\"%s/lib%03d.html\">%s</a>\n",
             work, a, path_basename(self->spath[a]));
+    }
+    else if( type == EMIT_TYPE_APPLICATION )
+    {
+      fprintf(file, "<a href=\"%s/app%03d.html\">", work, a);
+      if( strlen(self->sappl[a]) < 60 )
+      {
+        fprintf(file, "%s", self->sappl[a]);
+      }
+      else
+      {
+        fprintf(file, "<abbr title=\"%s\">", self->sappl[a]);
+        for( int j = 0; j < 60; ++j )
+        {
+          fprintf(file, "%c", self->sappl[a][j]);
+        }
+        fprintf(file, HTML_ELLIPSIS "</abbr>");
+      }
+      fprintf(file, "</a>\n");
+    }
 
-    meminfo_t *s = analyze_lib_mem(self, a, 0);
-
+    meminfo_t *s = analyze_mem(self, a, 0, type);
     const char *bg = ((i/3)&1) ? D1 : D2;
 
     fprintf(file, "<td %s align=right>%s\n", bg, uval(s->Private_Dirty));
@@ -3357,7 +3309,7 @@ analyze_emit_library_table(analyze_t *self, FILE *file, const char *work)
 
     for( int t = 1; t < self->ntypes; ++t )
     {
-      meminfo_t *s = analyze_lib_mem(self, a, t);
+      meminfo_t *s = analyze_mem(self, a, t, type);
       fprintf(file, "<td %s align=right>%s\n", bg, uval(meminfo_total(s)));
     }
   }
@@ -3446,14 +3398,14 @@ analyze_emit_main_page(analyze_t *self, smapssnap_t *snap, const char *path)
    * - - - - - - - - - - - - - - - - - - - */
 
   fprintf(file, "<a name=\"application_values\"><h1>Application Values</h1></a>\n");
-  analyze_emit_application_table(self, file, work);
+  analyze_emit_table(self, file, work, EMIT_TYPE_APPLICATION);
 
   /* - - - - - - - - - - - - - - - - - - - *
    * library table
    * - - - - - - - - - - - - - - - - - - - */
 
   fprintf(file, "<a name=\"object_values\"><h1>Object Values</h1></a>\n");
-  analyze_emit_library_table(self, file, work);
+  analyze_emit_table(self, file, work, EMIT_TYPE_LIBRARY);
 
   /* - - - - - - - - - - - - - - - - - - - *
    * html trailer
