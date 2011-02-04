@@ -2495,15 +2495,7 @@ analyze_accumulate_data(analyze_t *self)
                                         mapp->smapsmapp_EID,
                                         mapp->smapsmapp_TID);
 
-    pusum(&dest->Size,          srce->Size);
-    pusum(&dest->Rss,           srce->Rss);
-    pusum(&dest->Shared_Clean,  srce->Shared_Clean);
-    pusum(&dest->Shared_Dirty,  srce->Shared_Dirty);
-    pusum(&dest->Private_Clean, srce->Private_Clean);
-    pusum(&dest->Private_Dirty, srce->Private_Dirty);
-    pusum(&dest->Pss,           srce->Pss);
-    pusum(&dest->Swap,          srce->Swap);
-    pusum(&dest->Referenced,    srce->Referenced);
+    meminfo_accumulate_appdata(dest, srce);
   }
 
   /* - - - - - - - - - - - - - - - - - - - *
@@ -2527,32 +2519,14 @@ analyze_accumulate_data(analyze_t *self)
        * - - - - - - - - - - - - - - - - - - - */
 
       dest = analyze_app_mem(self, a, t);
-
-      pusum(&dest->Size,          srce->Size);
-      pusum(&dest->Rss,           srce->Rss);
-      pusum(&dest->Shared_Clean,  srce->Shared_Clean);
-      pusum(&dest->Shared_Dirty,  srce->Shared_Dirty);
-      pusum(&dest->Private_Clean, srce->Private_Clean);
-      pusum(&dest->Private_Dirty, srce->Private_Dirty);
-      pusum(&dest->Pss,           srce->Pss);
-      pusum(&dest->Swap,          srce->Swap);
-      pusum(&dest->Referenced,    srce->Referenced);
+      meminfo_accumulate_appdata(dest, srce);
 
       /* - - - - - - - - - - - - - - - - - - - *
        * process+library/type -> library/type
        * - - - - - - - - - - - - - - - - - - - */
 
       dest = analyze_lib_mem(self, p, t);
-
-      pumax(&dest->Size,          srce->Size);
-      pumax(&dest->Rss,           srce->Rss);
-      pumax(&dest->Shared_Clean,  srce->Shared_Clean);
-      pumax(&dest->Shared_Dirty,  srce->Shared_Dirty);
-      pusum(&dest->Private_Clean, srce->Private_Clean);
-      pusum(&dest->Private_Dirty, srce->Private_Dirty);
-      pusum(&dest->Pss,           srce->Pss);
-      pumax(&dest->Swap,          srce->Swap);
-      pumax(&dest->Referenced,    srce->Referenced);
+      meminfo_accumulate_libdata(dest, srce);
      }
   }
 
