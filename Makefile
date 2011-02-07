@@ -163,7 +163,6 @@ changelog:
 INSTALL_DIR = $(if $1, install -m755 -d $2/)
 INSTALL_MAN = $(if $1, install -m644 $1 $2/)
 INSTALL_BIN = $(if $1, install -m755 $1 $2/)
-INSTALL_HDR = $(if $1, install -m644 $1 $2/)
 
 install-%-man::
 	$(call INSTALL_DIR,$^,$(ROOT)$(MAN1))
@@ -172,10 +171,6 @@ install-%-man::
 install-%-bin::
 	$(call INSTALL_DIR,$^,$(ROOT)$(BIN))
 	$(call INSTALL_BIN,$^,$(ROOT)$(BIN))
-
-install-%-hdr::
-	$(call INSTALL_DIR,$^,$(ROOT)$(HDR))
-	$(call INSTALL_HDR,$^,$(ROOT)$(HDR))
 
 # -----------------------------------------------------------------------------
 # Compilation Macros & Rules
