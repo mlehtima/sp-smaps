@@ -119,11 +119,9 @@ LNK_VISUALIZE += sp_smaps_diff
 
 MAN_VISUALIZE += $(patsubst %,%.1.gz,$(BIN_VISUALIZE))
 MAN_VISUALIZE += $(patsubst %,%.1.gz,$(DLL_VISUALIZE))
+MAN_VISUALIZE += sp_smaps_sorted_totals.1.gz
 
-ALL_VISUALIZE += $(DLL_VISUALIZE) $(BIN_VISUALIZE) $(MAN_VISUALIZE)
-ALL_VISUALIZE += $(LNK_VISUALIZE)
-
-BIN_VISUALIZE += sp_smaps_filter
+ALL_VISUALIZE += $(DLL_VISUALIZE) $(BIN_VISUALIZE) $(MAN_VISUALIZE) $(LNK_VISUALIZE)
 
 # -----------------------------------------------------------------------------
 # Targets From All Packages
@@ -231,7 +229,7 @@ install-measure-man:: $(MAN_MEASURE)
 install-visualize:: $(addprefix install-visualize-,dll bin lnk man)
 
 install-visualize-dll:: $(DLL_VISUALIZE)
-install-visualize-bin:: $(BIN_VISUALIZE)
+install-visualize-bin:: $(BIN_VISUALIZE) sp_smaps_sorted_totals
 install-visualize-lnk:: $(addprefix $(ROOT)$(BIN)/,$(LNK_VISUALIZE))
 install-visualize-man:: $(MAN_VISUALIZE)
 	$(call INSTALL_DIR,$^,$(ROOT)$(MAN1))
