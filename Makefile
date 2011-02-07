@@ -54,7 +54,6 @@ NAME   ?= sp-smaps-visualize
 ROOT   ?= /tmp/$(NAME)-testing
 PREFIX ?= /usr
 BIN    ?= $(PREFIX)/bin
-DLL    ?= $(PREFIX)/lib/tracktools
 MAN1   ?= $(PREFIX)/share/man/man1
 
 # -----------------------------------------------------------------------------
@@ -94,8 +93,7 @@ endif
 BIN_MEASURE += sp_smaps_snapshot
 
 MAN_MEASURE += $(patsubst %,%.1.gz,$(BIN_MEASURE))
-MAN_MEASURE += $(patsubst %,%.1.gz,$(DLL_MEASURE))
-ALL_MEASURE += $(DLL_MEASURE) $(BIN_MEASURE) $(MAN_MEASURE)
+ALL_MEASURE += $(BIN_MEASURE) $(MAN_MEASURE)
 
 # -----------------------------------------------------------------------------
 # Normalization Package Files
@@ -118,10 +116,9 @@ LNK_VISUALIZE += sp_smaps_appvals
 LNK_VISUALIZE += sp_smaps_diff
 
 MAN_VISUALIZE += $(patsubst %,%.1.gz,$(BIN_VISUALIZE))
-MAN_VISUALIZE += $(patsubst %,%.1.gz,$(DLL_VISUALIZE))
 MAN_VISUALIZE += sp_smaps_sorted_totals.1.gz
 
-ALL_VISUALIZE += $(DLL_VISUALIZE) $(BIN_VISUALIZE) $(MAN_VISUALIZE) $(LNK_VISUALIZE)
+ALL_VISUALIZE += $(BIN_VISUALIZE) $(MAN_VISUALIZE) $(LNK_VISUALIZE)
 
 # -----------------------------------------------------------------------------
 # Targets From All Packages
@@ -166,7 +163,6 @@ changelog:
 INSTALL_DIR = $(if $1, install -m755 -d $2/)
 INSTALL_MAN = $(if $1, install -m644 $1 $2/)
 INSTALL_BIN = $(if $1, install -m755 $1 $2/)
-INSTALL_DLL = $(if $1, install -m644 $1 $2/)
 INSTALL_HDR = $(if $1, install -m644 $1 $2/)
 
 install-%-man::
@@ -176,10 +172,6 @@ install-%-man::
 install-%-bin::
 	$(call INSTALL_DIR,$^,$(ROOT)$(BIN))
 	$(call INSTALL_BIN,$^,$(ROOT)$(BIN))
-
-install-%-dll::
-	$(call INSTALL_DIR,$^,$(ROOT)$(DLL))
-	$(call INSTALL_DLL,$^,$(ROOT)$(DLL))
 
 install-%-hdr::
 	$(call INSTALL_DIR,$^,$(ROOT)$(HDR))
@@ -216,9 +208,8 @@ lib%.a :
 # Measurement Package Installation
 # -----------------------------------------------------------------------------
 
-install-measure:: $(addprefix install-measure-,dll bin man)
+install-measure:: $(addprefix install-measure-,bin man)
 
-install-measure-dll:: $(DLL_MEASURE)
 install-measure-bin:: $(BIN_MEASURE)
 install-measure-man:: $(MAN_MEASURE)
 
@@ -226,9 +217,8 @@ install-measure-man:: $(MAN_MEASURE)
 # Visualization Package Installation
 # -----------------------------------------------------------------------------
 
-install-visualize:: $(addprefix install-visualize-,dll bin lnk man)
+install-visualize:: $(addprefix install-visualize-,bin lnk man)
 
-install-visualize-dll:: $(DLL_VISUALIZE)
 install-visualize-bin:: $(BIN_VISUALIZE) sp_smaps_sorted_totals
 install-visualize-lnk:: $(addprefix $(ROOT)$(BIN)/,$(LNK_VISUALIZE))
 install-visualize-man:: $(MAN_VISUALIZE)
