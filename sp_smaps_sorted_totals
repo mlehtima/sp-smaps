@@ -3,39 +3,61 @@
 usage ()
 {
 	name=${0##*/}
+	echo "NAME"
+	echo "  $name -- sorted totals of given mapping for all processes"
 	echo
-	echo "$name <SMAPS mapping pattern> <SMAPS field pattern> <SMAPS snapshot file>"
+	echo "SYNOPSIS"
+	echo "  $name <SMAPS mapping pattern> <SMAPS field pattern> <SMAPS snapshot file>"
 	echo
-	echo "Shows size-sorted totals for given mappings for all the processes"
-	echo "in the given SMAPS snapshot file."
+	echo "DESCRIPTION"
+	echo "  Shows size-sorted totals for given mappings for all the processes"
+	echo "  in the given SMAPS snapshot file."
 	echo
-	echo "SMAPS mapping pattern can have anything from the mapping line that comes"
-	echo "_after_ the given mapping's address range; access rights, file name etc."
-	echo "Characters that are special for regular expressions '[].+*', need to"
-	echo "be quoted with '\\' if they are supposed to be matched literally!"
+	echo "OPTIONS"
+	echo "  SMAPS mapping pattern can have anything from the mapping line that comes"
+	echo "  _after_ the given mapping's address range; access rights, file name etc."
+	echo "  Characters that are special for regular expressions '[].+*', need to"
+	echo "  be quoted with '\\' if they are supposed to be matched literally!"
 	echo
-	echo "SMAPS field pattern needs to start with one of the SMAPS field names:"
-	echo "  Size, Rss, Pss, Shared_Clean, Shared_Dirty,"
-	echo "  Private_Clean, Private_Dirty, Referenced, Swap."
+	echo "  SMAPS field pattern needs to start with one of the SMAPS field names:"
+	echo "    Size, Rss, Pss, Shared_Clean, Shared_Dirty,"
+	echo "    Private_Clean, Private_Dirty, Referenced, Swap."
 	echo
-	echo "Examples:"
-	echo "- what processes use most RAM:"
-	echo "  $name '.*' Pss smaps.cap"
-	echo "- what processes are most on swap:"
-	echo "  $name '.*' Swap smaps.cap"
-	echo "- what processes have largest heaps:"
-	echo "  $name '\[heap\]' Size smaps.cap"
-	echo "- what processes have largest total of shared memory segments:"
-	echo "  $name SYSV Size smaps.cap"
-	echo "- which processes' executable code sections are writable:"
-	echo "  $name ' rwxp ' Size smaps.cap"
-	echo "- total of given sized anonymous allocs (unnamed mappings) in processes:"
-	echo "  $name ' 0 \$' 'Size: *2044 ' smaps.cap"
+	echo "EXAMPLES"
+	echo "  - what processes use most RAM:"
+	echo "    $name '.*' Pss smaps.cap"
+	echo "  - what processes are most on swap:"
+	echo "    $name '.*' Swap smaps.cap"
+	echo "  - what processes have largest heaps:"
+	echo "    $name '\[heap\]' Size smaps.cap"
+	echo "  - what processes have largest total of shared memory segments:"
+	echo "    $name SYSV Size smaps.cap"
+	echo "  - which processes' executable code sections are writable:"
+	echo "    $name ' rwxp ' Size smaps.cap"
+	echo "  - total of given sized anonymous allocs (unnamed mappings) in processes:"
+	echo "    $name ' 0 \$' 'Size: *2044 ' smaps.cap"
 	echo
-	echo "ERROR: $1!"
+	echo "AUTHOR"
+	echo "  Eero Tamminen <eero.tamminen@nokia.com>"
+	echo
+	echo "COPYRIGHT"
+	echo "  This program is free software; you can redistribute it and/or"
+	echo "  modify it under the terms of the GNU General Public License version 2"
+	echo "  as published by the Free Software Foundation."
+	echo
+	echo "SEE ALSO"
+	echo "  sp_smaps_snapshot (1)"
+	echo
+	echo "ERROR: $1!" 1>&2
 	echo
 	exit 1
 }
+
+# sp_gen_manfile wants --version:
+if [ "$1" = "--version" ] ; then
+	echo "0.0.1"
+	exit 0
+fi
 
 if [ $# -ne 3 ]; then
 	usage "wrong number of arguments"
