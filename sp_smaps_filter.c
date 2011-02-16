@@ -81,6 +81,7 @@
 
 #define HTML_DOWN_ARROW "&#x25BE;"
 #define HTML_ELLIPSIS   "&#0133;"
+#define JQUERY_URL "http://code.jquery.com/jquery-1.5.min.js"
 
 /* ------------------------------------------------------------------------- *
  * Runtime Manual
@@ -2643,6 +2644,327 @@ static const char *const emit_type_titles[] = {
   [EMIT_TYPE_OBJECT]          = "Object",
 };
 
+static const char jquery_metadata_js[] =
+  "/*\n"
+  " * Metadata - jQuery plugin for parsing metadata from elements\n"
+  " *\n"
+  " * Copyright (c) 2006 John Resig, Yehuda Katz, Jörn Zaefferer, Paul McLanahan\n"
+  " *\n"
+  " * Dual licensed under the MIT and GPL licenses:\n"
+  " *   http://www.opensource.org/licenses/mit-license.php\n"
+  " *   http://www.gnu.org/licenses/gpl.html\n"
+  " *\n"
+  " * Revision: $Id: jquery.metadata.js 3640 2007-10-11 18:34:38Z pmclanahan $\n"
+  " *\n"
+  " */\n"
+  "(function($) {\n"
+  "$.extend({\n"
+  "  metadata : {\n"
+  "    defaults : {\n"
+  "      type: 'class',\n"
+  "      name: 'metadata',\n"
+  "      cre: /({.*})/,\n"
+  "      single: 'metadata'\n"
+  "    },\n"
+  "    setType: function( type, name ){\n"
+  "      this.defaults.type = type;\n"
+  "      this.defaults.name = name;\n"
+  "    },\n"
+  "    get: function( elem, opts ){\n"
+  "      var settings = $.extend({},this.defaults,opts);\n"
+  "      // check for empty string in single property\n"
+  "      if ( !settings.single.length ) settings.single = 'metadata';\n"
+  "      var data = $.data(elem, settings.single);\n"
+  "      // returned cached data if it already exists\n"
+  "      if ( data ) return data;\n"
+  "      data = \"{}\";\n"
+  "      var getData = function(data) {\n"
+  "        if(typeof data != \"string\") return data;\n"
+  "        \n"
+  "        if( data.indexOf('{') < 0 ) {\n"
+  "          data = eval(\"(\" + data + \")\");\n"
+  "        }\n"
+  "      }\n"
+  "      var getObject = function(data) {\n"
+  "        if(typeof data != \"string\") return data;\n"
+  "        data = eval(\"(\" + data + \")\");\n"
+  "        return data;\n"
+  "      }\n"
+  "      if ( settings.type == \"html5\" ) {\n"
+  "        var object = {};\n"
+  "        $( elem.attributes ).each(function() {\n"
+  "          var name = this.nodeName;\n"
+  "          if(name.match(/^data-/)) name = name.replace(/^data-/, '');\n"
+  "          else return true;\n"
+  "          object[name] = getObject(this.nodeValue);\n"
+  "        });\n"
+  "      } else {\n"
+  "        if ( settings.type == \"class\" ) {\n"
+  "          var m = settings.cre.exec( elem.className );\n"
+  "          if ( m )\n"
+  "            data = m[1];\n"
+  "        } else if ( settings.type == \"elem\" ) {\n"
+  "          if( !elem.getElementsByTagName ) return;\n"
+  "          var e = elem.getElementsByTagName(settings.name);\n"
+  "          if ( e.length )\n"
+  "            data = $.trim(e[0].innerHTML);\n"
+  "        } else if ( elem.getAttribute != undefined ) {\n"
+  "          var attr = elem.getAttribute( settings.name );\n"
+  "          if ( attr )\n"
+  "            data = attr;\n"
+  "        }\n"
+  "        object = getObject(data.indexOf(\"{\") < 0 ? \"{\" + data + \"}\" : data);\n"
+  "      }\n"
+  "      $.data( elem, settings.single, object );\n"
+  "      return object;\n"
+  "    }\n"
+  "  }\n"
+  "});\n"
+  "$.fn.metadata = function( opts ){\n"
+  "  return $.metadata.get( this[0], opts );\n"
+  "};\n"
+  "})(jQuery);";
+
+static const char jquery_tablesorter_min_js[] =
+  "(function($){$.extend({tablesorter:new\n"
+  "function(){var parsers=[],widgets=[];this.defaults={cssHeader:\"header\",css"
+  "Asc:\"headerSortUp\",cssDesc:\"headerSortDown\",cssChildRow:\"expand-child\""
+  ",sortInitialOrder:\"asc\",sortMultiSortKey:\"shiftKey\",sortForce:null,sortA"
+  "ppend:null,sortLocaleCompare:true,textExtraction:\"simple\",parsers:{},widge"
+  "ts:[],widgetZebra:{css:[\"even\",\"odd\"]},headers:{},widthFixed:false,cance"
+  "lSelection:true,sortList:[],headerList:[],dateFormat:\"us\",decimal:'/\\.|\\"
+  ",/g',onRenderHeader:null,selectorHeaders:'thead th',debug:false};function be"
+  "nchmark(s,d){log(s+\",\"+(new Date().getTime()-d.getTime())+\"ms\");}this.be"
+  "nchmark=benchmark;function log(s){if(typeof console!=\"undefined\"&&typeof c"
+  "onsole.debug!=\"undefined\"){console.log(s);}else{alert(s);}}function buildP"
+  "arserCache(table,$headers){if(table.config.debug){var parsersDebug=\"\";}if("
+  "table.tBodies.length==0)return;var rows=table.tBodies[0].rows;if(rows[0]){va"
+  "r list=[],cells=rows[0].cells,l=cells.length;for(var i=0;i<l;i++){var p=fals"
+  "e;if($.metadata&&($($headers[i]).metadata()&&$($headers[i]).metadata().sorte"
+  "r)){p=getParserById($($headers[i]).metadata().sorter);}else if((table.config"
+  ".headers[i]&&table.config.headers[i].sorter)){p=getParserById(table.config.h"
+  "eaders[i].sorter);}if(!p){p=detectParserForColumn(table,rows,-1,i);}if(table"
+  ".config.debug){parsersDebug+=\"column:\"+i+\" parser:\"+p.id+\"\\n\";}list.p"
+  "ush(p);}}if(table.config.debug){log(parsersDebug);}return list;};function de"
+  "tectParserForColumn(table,rows,rowIndex,cellIndex){var l=parsers.length,node"
+  "=false,nodeValue=false,keepLooking=true;while(nodeValue==''&&keepLooking){ro"
+  "wIndex++;if(rows[rowIndex]){node=getNodeFromRowAndCellIndex(rows,rowIndex,ce"
+  "llIndex);nodeValue=trimAndGetNodeText(table.config,node);if(table.config.deb"
+  "ug){log('Checking if value was empty on row:'+rowIndex);}}else{keepLooking=f"
+  "alse;}}for(var i=1;i<l;i++){if(parsers[i].is(nodeValue,table,node)){return p"
+  "arsers[i];}}return parsers[0];}function getNodeFromRowAndCellIndex(rows,rowI"
+  "ndex,cellIndex){return rows[rowIndex].cells[cellIndex];}function trimAndGetN"
+  "odeText(config,node){return $.trim(getElementText(config,node));}function ge"
+  "tParserById(name){var l=parsers.length;for(var i=0;i<l;i++){if(parsers[i].id"
+  ".toLowerCase()==name.toLowerCase()){return parsers[i];}}return false;}functi"
+  "on buildCache(table){if(table.config.debug){var cacheTime=new Date();}var to"
+  "talRows=(table.tBodies[0]&&table.tBodies[0].rows.length)||0,totalCells=(tabl"
+  "e.tBodies[0].rows[0]&&table.tBodies[0].rows[0].cells.length)||0,parsers=tabl"
+  "e.config.parsers,cache={row:[],normalized:[]};for(var i=0;i<totalRows;++i){v"
+  "ar c=$(table.tBodies[0].rows[i]),cols=[];if(c.hasClass(table.config.cssChild"
+  "Row)){cache.row[cache.row.length-1]=cache.row[cache.row.length-1].add(c);con"
+  "tinue;}cache.row.push(c);for(var j=0;j<totalCells;++j){cols.push(parsers[j]."
+  "format(getElementText(table.config,c[0].cells[j]),table,c[0].cells[j]));}col"
+  "s.push(cache.normalized.length);cache.normalized.push(cols);cols=null;};if(t"
+  "able.config.debug){benchmark(\"Building cache for \"+totalRows+\" rows:\",ca"
+  "cheTime);}return cache;};function getElementText(config,node){var text=\"\";"
+  "if(!node)return\"\";if(!config.supportsTextContent)config.supportsTextConten"
+  "t=node.textContent||false;if(config.textExtraction==\"simple\"){if(config.su"
+  "pportsTextContent){text=node.textContent;}else{if(node.childNodes[0]&&node.c"
+  "hildNodes[0].hasChildNodes()){text=node.childNodes[0].innerHTML;}else{text=n"
+  "ode.innerHTML;}}}else{if(typeof(config.textExtraction)==\"function\"){text=c"
+  "onfig.textExtraction(node);}else{text=$(node).text();}}return text;}function"
+  " appendToTable(table,cache){if(table.config.debug){var appendTime=new Date()"
+  "}var c=cache,r=c.row,n=c.normalized,totalRows=n.length,checkCell=(n[0].lengt"
+  "h-1),tableBody=$(table.tBodies[0]),rows=[];for(var i=0;i<totalRows;i++){var "
+  "pos=n[i][checkCell];rows.push(r[pos]);if(!table.config.appender){var l=r[pos"
+  "].length;for(var j=0;j<l;j++){tableBody[0].appendChild(r[pos][j]);}}}if(tabl"
+  "e.config.appender){table.config.appender(table,rows);}rows=null;if(table.con"
+  "fig.debug){benchmark(\"Rebuilt table:\",appendTime);}applyWidget(table);setT"
+  "imeout(function(){$(table).trigger(\"sortEnd\");},0);};function buildHeaders"
+  "(table){if(table.config.debug){var time=new Date();}var meta=($.metadata)?tr"
+  "ue:false;var header_index=computeTableHeaderCellIndexes(table);$tableHeaders"
+  "=$(table.config.selectorHeaders,table).each(function(index){this.column=head"
+  "er_index[this.parentNode.rowIndex+\"-\"+this.cellIndex];this.order=formatSor"
+  "tingOrder(table.config.sortInitialOrder);this.count=this.order;if(checkHeade"
+  "rMetadata(this)||checkHeaderOptions(table,index))this.sortDisabled=true;if(c"
+  "heckHeaderOptionsSortingLocked(table,index))this.order=this.lockedOrder=chec"
+  "kHeaderOptionsSortingLocked(table,index);if(!this.sortDisabled){var $th=$(th"
+  "is).addClass(table.config.cssHeader);if(table.config.onRenderHeader)table.co"
+  "nfig.onRenderHeader.apply($th);}table.config.headerList[index]=this;});if(ta"
+  "ble.config.debug){benchmark(\"Built headers:\",time);log($tableHeaders);}ret"
+  "urn $tableHeaders;};function computeTableHeaderCellIndexes(t){var matrix=[];"
+  "var lookup={};var thead=t.getElementsByTagName('THEAD')[0];var trs=thead.get"
+  "ElementsByTagName('TR');for(var i=0;i<trs.length;i++){var cells=trs[i].cells"
+  ";for(var j=0;j<cells.length;j++){var c=cells[j];var rowIndex=c.parentNode.ro"
+  "wIndex;var cellId=rowIndex+\"-\"+c.cellIndex;var rowSpan=c.rowSpan||1;var co"
+  "lSpan=c.colSpan||1\n"
+  "var firstAvailCol;if(typeof(matrix[rowIndex])==\"undefined\"){matrix[rowInde"
+  "x]=[];}for(var k=0;k<matrix[rowIndex].length+1;k++){if(typeof(matrix[rowInde"
+  "x][k])==\"undefined\"){firstAvailCol=k;break;}}lookup[cellId]=firstAvailCol;"
+  "for(var k=rowIndex;k<rowIndex+rowSpan;k++){if(typeof(matrix[k])==\"undefined"
+  "\"){matrix[k]=[];}var matrixrow=matrix[k];for(var l=firstAvailCol;l<firstAva"
+  "ilCol+colSpan;l++){matrixrow[l]=\"x\";}}}}return lookup;}function checkCellC"
+  "olSpan(table,rows,row){var arr=[],r=table.tHead.rows,c=r[row].cells;for(var "
+  "i=0;i<c.length;i++){var cell=c[i];if(cell.colSpan>1){arr=arr.concat(checkCel"
+  "lColSpan(table,headerArr,row++));}else{if(table.tHead.length==1||(cell.rowSp"
+  "an>1||!r[row+1])){arr.push(cell);}}}return arr;};function checkHeaderMetadat"
+  "a(cell){if(($.metadata)&&($(cell).metadata().sorter===false)){return true;};"
+  "return false;}function checkHeaderOptions(table,i){if((table.config.headers["
+  "i])&&(table.config.headers[i].sorter===false)){return true;};return false;}f"
+  "unction checkHeaderOptionsSortingLocked(table,i){if((table.config.headers[i]"
+  ")&&(table.config.headers[i].lockedOrder))return table.config.headers[i].lock"
+  "edOrder;return false;}function applyWidget(table){var c=table.config.widgets"
+  ";var l=c.length;for(var i=0;i<l;i++){getWidgetById(c[i]).format(table);}}fun"
+  "ction getWidgetById(name){var l=widgets.length;for(var i=0;i<l;i++){if(widge"
+  "ts[i].id.toLowerCase()==name.toLowerCase()){return widgets[i];}}};function f"
+  "ormatSortingOrder(v){if(typeof(v)!=\"Number\"){return(v.toLowerCase()==\"des"
+  "c\")?1:0;}else{return(v==1)?1:0;}}function isValueInArray(v,a){var l=a.lengt"
+  "h;for(var i=0;i<l;i++){if(a[i][0]==v){return true;}}return false;}function s"
+  "etHeadersCss(table,$headers,list,css){$headers.removeClass(css[0]).removeCla"
+  "ss(css[1]);var h=[];$headers.each(function(offset){if(!this.sortDisabled){h["
+  "this.column]=$(this);}});var l=list.length;for(var i=0;i<l;i++){h[list[i][0]"
+  "].addClass(css[list[i][1]]);}}function fixColumnWidth(table,$headers){var c="
+  "table.config;if(c.widthFixed){var colgroup=$('<colgroup>');$(\"tr:first td\""
+  ",table.tBodies[0]).each(function(){colgroup.append($('<col>').css('width',$("
+  "this).width()));});$(table).prepend(colgroup);};}function updateHeaderSortCo"
+  "unt(table,sortList){var c=table.config,l=sortList.length;for(var i=0;i<l;i++"
+  "){var s=sortList[i],o=c.headerList[s[0]];o.count=s[1];o.count++;}}function m"
+  "ultisort(table,sortList,cache){if(table.config.debug){var sortTime=new Date("
+  ");}var dynamicExp=\"var sortWrapper = function(a,b) {\",l=sortList.length;fo"
+  "r(var i=0;i<l;i++){var c=sortList[i][0];var order=sortList[i][1];var s=(tabl"
+  "e.config.parsers[c].type==\"text\")?((order==0)?makeSortFunction(\"text\",\""
+  "asc\",c):makeSortFunction(\"text\",\"desc\",c)):((order==0)?makeSortFunction"
+ "(\"numeric\",\"asc\",c):makeSortFunction(\"numeric\",\"desc\",c));var e=\"e\""
+   "+i;dynamicExp+=\"var \"+e+\" = \"+s;dynamicExp+=\"if(\"+e+\") { return \"+e"
+  "+\"; } \";dynamicExp+=\"else { \";}var orgOrderCol=cache.normalized[0].lengt"
+  "h-1;dynamicExp+=\"return a[\"+orgOrderCol+\"]-b[\"+orgOrderCol+\"];\";for(va"
+ "r i=0;i<l;i++){dynamicExp+=\"}; \";}dynamicExp+=\"return 0; \";dynamicExp+=\""
+   "}; \";if(table.config.debug){benchmark(\"Evaling expression:\"+dynamicExp,n"
+  "ew Date());}eval(dynamicExp);cache.normalized.sort(sortWrapper);if(table.con"
+  "fig.debug){benchmark(\"Sorting on \"+sortList.toString()+\" and dir \"+order"
+  "+\" time:\",sortTime);}return cache;};function makeSortFunction(type,directi"
+  "on,index){var a=\"a[\"+index+\"]\",b=\"b[\"+index+\"]\";if(type=='text'&&dir"
+  "ection=='asc'){return\"(\"+a+\" == \"+b+\" ? 0 : (\"+a+\" === null ? Number."
+  "POSITIVE_INFINITY : (\"+b+\" === null ? Number.NEGATIVE_INFINITY : (\"+a+\" "
+ "< \"+b+\") ? -1 : 1 )));\";}else if(type=='text'&&direction=='desc'){return\""
+  "(\"+a+\" == \"+b+\" ? 0 : (\"+a+\" === null ? Number.POSITIVE_INFINITY : (\""
+   "+b+\" === null ? Number.NEGATIVE_INFINITY : (\"+b+\" < \"+a+\") ? -1 : 1 ))"
+  ");\";}else if(type=='numeric'&&direction=='asc'){return\"(\"+a+\" === null &"
+  "& \"+b+\" === null) ? 0 :(\"+a+\" === null ? Number.POSITIVE_INFINITY : (\"+"
+  "b+\" === null ? Number.NEGATIVE_INFINITY : \"+a+\" - \"+b+\"));\";}else if(t"
+  "ype=='numeric'&&direction=='desc'){return\"(\"+a+\" === null && \"+b+\" === "
+  "null) ? 0 :(\"+a+\" === null ? Number.POSITIVE_INFINITY : (\"+b+\" === null "
+  "? Number.NEGATIVE_INFINITY : \"+b+\" - \"+a+\"));\";}};function makeSortText"
+  "(i){return\"((a[\"+i+\"] < b[\"+i+\"]) ? -1 : ((a[\"+i+\"] > b[\"+i+\"]) ? 1"
+  " : 0));\";};function makeSortTextDesc(i){return\"((b[\"+i+\"] < a[\"+i+\"]) "
+  "? -1 : ((b[\"+i+\"] > a[\"+i+\"]) ? 1 : 0));\";};function makeSortNumeric(i)"
+  "{return\"a[\"+i+\"]-b[\"+i+\"];\";};function makeSortNumericDesc(i){return\""
+  "b[\"+i+\"]-a[\"+i+\"];\";};function sortText(a,b){if(table.config.sortLocale"
+  "Compare)return a.localeCompare(b);return((a<b)?-1:((a>b)?1:0));};function so"
+  "rtTextDesc(a,b){if(table.config.sortLocaleCompare)return b.localeCompare(a);"
+  "return((b<a)?-1:((b>a)?1:0));};function sortNumeric(a,b){return a-b;};functi"
+  "on sortNumericDesc(a,b){return b-a;};function getCachedSortType(parsers,i){r"
+  "eturn parsers[i].type;};this.construct=function(settings){return this.each(f"
+  "unction(){if(!this.tHead||!this.tBodies)return;var $this,$document,$headers,"
+  "cache,config,shiftDown=0,sortOrder;this.config={};config=$.extend(this.confi"
+  "g,$.tablesorter.defaults,settings);$this=$(this);$.data(this,\"tablesorter\""
+  ",config);$headers=buildHeaders(this);this.config.parsers=buildParserCache(th"
+  "is,$headers);cache=buildCache(this);var sortCSS=[config.cssDesc,config.cssAs"
+  "c];fixColumnWidth(this);$headers.click(function(e){var totalRows=($this[0].t"
+  "Bodies[0]&&$this[0].tBodies[0].rows.length)||0;if(!this.sortDisabled&&totalR"
+  "ows>0){$this.trigger(\"sortStart\");var $cell=$(this);var i=this.column;this"
+  ".order=this.count++%2;if(this.lockedOrder)this.order=this.lockedOrder;if(!e["
+  "config.sortMultiSortKey]){config.sortList=[];if(config.sortForce!=null){var "
+  "a=config.sortForce;for(var j=0;j<a.length;j++){if(a[j][0]!=i){config.sortLis"
+  "t.push(a[j]);}}}config.sortList.push([i,this.order]);}else{if(isValueInArray"
+  "(i,config.sortList)){for(var j=0;j<config.sortList.length;j++){var s=config."
+  "sortList[j],o=config.headerList[s[0]];if(s[0]==i){o.count=s[1];o.count++;s[1"
+  "]=o.count%2;}}}else{config.sortList.push([i,this.order]);}};setTimeout(funct"
+  "ion(){setHeadersCss($this[0],$headers,config.sortList,sortCSS);appendToTable"
+  "($this[0],multisort($this[0],config.sortList,cache));},1);return false;}}).m"
+  "ousedown(function(){if(config.cancelSelection){this.onselectstart=function()"
+  "{return false};return false;}});$this.bind(\"update\",function(){var me=this"
+  ";setTimeout(function(){me.config.parsers=buildParserCache(me,$headers);cache"
+  "=buildCache(me);},1);}).bind(\"updateCell\",function(e,cell){var config=this"
+  ".config;var pos=[(cell.parentNode.rowIndex-1),cell.cellIndex];cache.normaliz"
+  "ed[pos[0]][pos[1]]=config.parsers[pos[1]].format(getElementText(config,cell)"
+  ",cell);}).bind(\"sorton\",function(e,list){$(this).trigger(\"sortStart\");co"
+  "nfig.sortList=list;var sortList=config.sortList;updateHeaderSortCount(this,s"
+  "ortList);setHeadersCss(this,$headers,sortList,sortCSS);appendToTable(this,mu"
+  "ltisort(this,sortList,cache));}).bind(\"appendCache\",function(){appendToTab"
+  "le(this,cache);}).bind(\"applyWidgetId\",function(e,id){getWidgetById(id).fo"
+  "rmat(this);}).bind(\"applyWidgets\",function(){applyWidget(this);});if($.met"
+  "adata&&($(this).metadata()&&$(this).metadata().sortlist)){config.sortList=$("
+  "this).metadata().sortlist;}if(config.sortList.length>0){$this.trigger(\"sort"
+  "on\",[config.sortList]);}applyWidget(this);});};this.addParser=function(pars"
+  "er){var l=parsers.length,a=true;for(var i=0;i<l;i++){if(parsers[i].id.toLowe"
+  "rCase()==parser.id.toLowerCase()){a=false;}}if(a){parsers.push(parser);};};t"
+  "his.addWidget=function(widget){widgets.push(widget);};this.formatFloat=funct"
+  "ion(s){var i=parseFloat(s);return(isNaN(i))?0:i;};this.formatInt=function(s)"
+  "{var i=parseInt(s);return(isNaN(i))?0:i;};this.isDigit=function(s,config){re"
+  "turn/^[-+]?\\d*$/.test($.trim(s.replace(/[,.']/g,'')));};this.clearTableBody"
+  "=function(table){if($.browser.msie){function empty(){while(this.firstChild)t"
+  "his.removeChild(this.firstChild);}empty.apply(table.tBodies[0]);}else{table."
+  "tBodies[0].innerHTML=\"\";}};}});$.fn.extend({tablesorter:$.tablesorter.cons"
+  "truct});var ts=$.tablesorter;ts.addParser({id:\"text\",is:function(s){return"
+  " true;},format:function(s){return $.trim(s.toLocaleLowerCase());},type:\"tex"
+  "t\"});ts.addParser({id:\"digit\",is:function(s,table){var c=table.config;ret"
+  "urn $.tablesorter.isDigit(s,c);},format:function(s){return $.tablesorter.for"
+  "matFloat(s);},type:\"numeric\"});ts.addParser({id:\"currency\",is:function(s"
+  "){return/^[£$€?.]/.test(s);},format:function(s){return $.tablesorter.formatF"
+  "loat(s.replace(new RegExp(/[£$€]/g),\"\"));},type:\"numeric\"});ts.addParser"
+  "({id:\"ipAddress\",is:function(s){return/^\\d{2,3}[\\.]\\d{2,3}[\\.]\\d{2,3}"
+  "[\\.]\\d{2,3}$/.test(s);},format:function(s){var a=s.split(\".\"),r=\"\",l=a"
+  ".length;for(var i=0;i<l;i++){var item=a[i];if(item.length==2){r+=\"0\"+item;"
+  "}else{r+=item;}}return $.tablesorter.formatFloat(r);},type:\"numeric\"});ts."
+  "addParser({id:\"url\",is:function(s){return/^(https?|ftp|file):\\/\\/$/.test"
+  "(s);},format:function(s){return jQuery.trim(s.replace(new RegExp(/(https?|ft"
+  "p|file):\\/\\//),''));},type:\"text\"});ts.addParser({id:\"isoDate\",is:func"
+  "tion(s){return/^\\d{4}[\\/-]\\d{1,2}[\\/-]\\d{1,2}$/.test(s);},format:functi"
+  "on(s){return $.tablesorter.formatFloat((s!=\"\")?new Date(s.replace(new RegE"
+  "xp(/-/g),\"/\")).getTime():\"0\");},type:\"numeric\"});ts.addParser({id:\"pe"
+  "rcent\",is:function(s){return/\\%$/.test($.trim(s));},format:function(s){ret"
+  "urn $.tablesorter.formatFloat(s.replace(new RegExp(/%/g),\"\"));},type:\"num"
+  "eric\"});ts.addParser({id:\"usLongDate\",is:function(s){return s.match(new R"
+  "egExp(/^[A-Za-z]{3,10}\\.? [0-9]{1,2}, ([0-9]{4}|'?[0-9]{2}) (([0-2]?[0-9]:["
+  "0-5][0-9])|([0-1]?[0-9]:[0-5][0-9]\\s(AM|PM)))$/));},format:function(s){retu"
+  "rn $.tablesorter.formatFloat(new Date(s).getTime());},type:\"numeric\"});ts."
+   "addParser({id:\"shortDate\",is:function(s){return/\\d{1,2}[\\/\\-]\\d{1,2}["
+  "\\/\\-]\\d{2,4}/.test(s);},format:function(s,table){var c=table.config;s=s.r"
+  "eplace(/\\-/g,\"/\");if(c.dateFormat==\"us\"){s=s.replace(/(\\d{1,2})[\\/\\-"
+  "](\\d{1,2})[\\/\\-](\\d{4})/,\"$3/$1/$2\");}else if(c.dateFormat==\"uk\"){s="
+  "s.replace(/(\\d{1,2})[\\/\\-](\\d{1,2})[\\/\\-](\\d{4})/,\"$3/$2/$1\");}else"
+  " if(c.dateFormat==\"dd/mm/yy\"||c.dateFormat==\"dd-mm-yy\"){s=s.replace(/(\\"
+  "d{1,2})[\\/\\-](\\d{1,2})[\\/\\-](\\d{2})/,\"$1/$2/$3\");}return $.tablesort"
+  "er.formatFloat(new Date(s).getTime());},type:\"numeric\"});ts.addParser({id:"
+  "\"time\",is:function(s){return/^(([0-2]?[0-9]:[0-5][0-9])|([0-1]?[0-9]:[0-5]"
+  "[0-9]\\s(am|pm)))$/.test(s);},format:function(s){return $.tablesorter.format"
+  "Float(new Date(\"2000/01/01 \"+s).getTime());},type:\"numeric\"});ts.addPars"
+  "er({id:\"metadata\",is:function(s){return false;},format:function(s,table,ce"
+  "ll){var c=table.config,p=(!c.parserMetadataName)?'sortValue':c.parserMetadat"
+  "aName;return $(cell).metadata()[p];},type:\"numeric\"});ts.addWidget({id:\"z"
+  "ebra\",format:function(table){if(table.config.debug){var time=new Date();}va"
+  "r $tr,row=-1,odd;$(\"tr:visible\",table.tBodies[0]).each(function(i){$tr=$(t"
+  "his);if(!$tr.hasClass(table.config.cssChildRow))row++;odd=(row%2==0);$tr.rem"
+  "oveClass(table.config.widgetZebra.css[odd?0:1]).addClass(table.config.widget"
+  "Zebra.css[odd?1:0])});if(table.config.debug){$.tablesorter.benchmark(\"Apply"
+  "ing Zebra widget\",time);}}});})(jQuery);\n";
+
+static const char tablesorter_css[] =
+  "table.tablesorter"
+  " { background-color: #CDCDCD; margin:10px 0pt 15px; width: 100%%; text-align: left; }\n"
+  "table.tablesorter thead tr th, table.tablesorter tfoot tr th"
+  " { background-color: #e6EEEE; border: 1px solid #FFF; padding: 4px; }\n"
+  "table.tablesorter thead tr .header"
+  " { cursor: pointer; }\n"
+  "table.tablesorter tbody td"
+  " { color: #3D3D3D; padding: 4px; background-color: #FFF; vertical-align: top; }\n"
+  "table.tablesorter tbody tr.odd td"
+  " { background-color:#F0F0F6; }\n"
+  "table.tablesorter thead tr .headerSortDown, table.tablesorter thead tr .headerSortUp"
+  " { background-color: #8dbdd8; }\n";
+
 /* ------------------------------------------------------------------------- *
  * analyze_emit_page_table
  * ------------------------------------------------------------------------- */
@@ -3126,14 +3448,14 @@ static const char *const virtual_memory_column_titles[][5] = {
   [EMIT_TYPE_LIBRARY] = {
     "<abbr title=\"Largest value\"><i>RSS</i></abbr>",
     "<abbr title=\"Largest value\"><i>Size</i></abbr>",
-    "<abbr title=\"Sum of values\">PSS</abbr> " HTML_DOWN_ARROW,
+    "<abbr title=\"Sum of values\">PSS</abbr> ",
     "<abbr title=\"Largest value\"><i>Swap</i></abbr>",
     "<abbr title=\"Largest value\"><i>Referenced</i></abbr>",
   },
   [EMIT_TYPE_APPLICATION] = {
     "RSS",
     "Size",
-    "PSS " HTML_DOWN_ARROW,
+    "PSS ",
     "Swap",
     "Referenced",
   },
@@ -3142,6 +3464,7 @@ static const char *const virtual_memory_column_titles[][5] = {
 static void
 analyze_emit_table_header(const analyze_t *self, FILE *file, enum emit_type type)
 {
+  fprintf(file, "<thead>\n");
   fprintf(file, "<tr>\n");
   fprintf(file, "<th"TP" rowspan=3>%s\n", emit_type_titles[type]);
   fprintf(file, "<th"TP" colspan=4>%s\n", "RSS / Status");
@@ -3257,14 +3580,13 @@ analyze_emit_table(analyze_t *self, FILE *file, const char *work, enum emit_type
   else if( type == EMIT_TYPE_APPLICATION )
     qsort(lut, items, sizeof *lut, analyze_emit_application_table_cmp);
 
-  fprintf(file, "<table border=1>\n");
-  int N = 20;
-  N = (items + N-1)/N;
-  if (N) N = (items + N-1)/N;
+  /* Sort initially by 7th column (PSS) in descending order */
+  fprintf(file, "<table border=1 class=\"tablesorter { sortlist: [[7,1]] }\">\n");
+  analyze_emit_table_header(self, file, type);
+  fprintf(file, "<tbody>\n");
   for( int i = 0; i < items; ++i )
   {
     int a = lut[i];
-    if( i % N == 0 ) analyze_emit_table_header(self, file, type);
 
     fprintf(file, "<tr>\n");
     fprintf(file, "<th bgcolor=\"#bfffff\" align=left>");
@@ -3320,6 +3642,43 @@ analyze_emit_table(analyze_t *self, FILE *file, const char *work, enum emit_type
  * analyze_emit_main_page
  * ------------------------------------------------------------------------- */
 
+static int
+create_javascript_files(const char *workdir)
+{
+  FILE *fp;
+  char buf[512];
+  snprintf(buf, sizeof(buf), "%s/jquery.metadata.js", workdir);
+  buf[sizeof(buf)-1]=0;
+  fp = fopen(buf, "w");
+  if (!fp) {
+    perror("Unable to create jquery.metadata.js");
+    goto error;
+  }
+  fprintf(fp, "%s\n", jquery_metadata_js);
+  fclose(fp);
+  snprintf(buf, sizeof(buf), "%s/jquery.tablesorter.min.js", workdir);
+  buf[sizeof(buf)-1]=0;
+  fp = fopen(buf, "w");
+  if (!fp) {
+    perror("Unable to create jquery.tablesorter.min.js");
+    goto error;
+  }
+  fprintf(fp, "%s\n", jquery_tablesorter_min_js);
+  fclose(fp);
+  snprintf(buf, sizeof(buf), "%s/tablesorter.css", workdir);
+  buf[sizeof(buf)-1]=0;
+  fp = fopen(buf, "w");
+  if (!fp) {
+    perror("Unable to create tablesorter.css");
+    goto error;
+  }
+  fprintf(fp, "%s\n", tablesorter_css);
+  fclose(fp);
+  return 0;
+error:
+  return -1;
+}
+
 int
 analyze_emit_main_page(analyze_t *self, smapssnap_t *snap, const char *path)
 {
@@ -3344,6 +3703,11 @@ analyze_emit_main_page(analyze_t *self, smapssnap_t *snap, const char *path)
     }
   }
 
+  if( create_javascript_files(work) < 0 )
+  {
+    goto cleanup;
+  }
+
   /* - - - - - - - - - - - - - - - - - - - *
    * open output file
    * - - - - - - - - - - - - - - - - - - - */
@@ -3360,8 +3724,14 @@ analyze_emit_main_page(analyze_t *self, smapssnap_t *snap, const char *path)
   fprintf(file, "<html>\n");
   fprintf(file, "<head>\n");
   fprintf(file, "<title>%s</title>\n", smapssnap_get_source(snap));
+  fprintf(file, "<link rel=\"stylesheet\" type=\"text/css\" href=\"%s/tablesorter.css\" />", work);
   fprintf(file, "</head>\n");
   fprintf(file, "<body>\n");
+  fprintf(file, "<script src=\"" JQUERY_URL "\"></script>\n");
+  fprintf(file, "<script src=\"%s/jquery.metadata.js\"></script>\n", work);
+  fprintf(file, "<script src=\"%s/jquery.tablesorter.min.js\"></script>\n", work);
+  fprintf(file, "<script>$(document).ready(function() "
+                "{ $(\".tablesorter\").tablesorter(); } );</script>\n");
 
   /* - - - - - - - - - - - - - - - - - - - *
    * memory usage tables
