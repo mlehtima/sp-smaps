@@ -43,6 +43,6 @@
 #ifndef RELEASE_H_
 #define RELEASE_H_
 
-#define TOOL_VERS "0.1.8"
+#define TOOL_VERS "0.3.0"
 
 #endif /* RELEASE_H_ */
