@@ -1,3 +1,9 @@
+sp-smaps (0.3.0-2) unstable; urgency=low
+
+  * Drop Python dependencies.
+
+ -- Tommi Rantala <ext-tommi.1.rantala@nokia.com>  Thu, 17 Feb 2011 10:42:25 +0200
+
 sp-smaps (0.3.0-1) unstable; urgency=low
 
   * New post processing tool `sp_smaps_sorted_totals', that shows sorted
