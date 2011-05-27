@@ -2710,7 +2710,6 @@ analyze_emit_xref_header(const analyze_t *self, FILE *file, enum emit_type type)
   fprintf(file, "<th"TP">%s\n", "Clean<br>Shared");
   fprintf(file, "<th"TP">%s %s\n", "Pss", HTML_DOWN_ARROW);
   fprintf(file, "<th"TP">%s\n", "Swap");
-  fprintf(file, "<th"TP">%s\n", "Referenced");
 }
 
 /* ------------------------------------------------------------------------- *
@@ -2880,7 +2879,6 @@ analyze_emit_lib_html(analyze_t *self, smapssnap_t *snap, const char *work)
         fprintf(file, "<td%s align=right>%s\n", bg, uval(m->smapsmapp_mem.Shared_Clean));
         fprintf(file, "<td%s align=right>%s\n", bg, uval(m->smapsmapp_mem.Pss));
         fprintf(file, "<td%s align=right>%s\n", bg, uval(m->smapsmapp_mem.Swap));
-        fprintf(file, "<td%s align=right>%s\n", bg, uval(m->smapsmapp_mem.Referenced));
       }
       rows_out += bhi-blo;
       if( rows_out > 25 )
@@ -3039,7 +3037,6 @@ analyze_emit_app_html(analyze_t *self, smapssnap_t *snap, const char *work)
         fprintf(file, "<td%s align=right>%s\n", bg, uval(m->smapsmapp_mem.Shared_Clean));
         fprintf(file, "<td%s align=right>%s\n", bg, uval(m->smapsmapp_mem.Pss));
         fprintf(file, "<td%s align=right>%s\n", bg, uval(m->smapsmapp_mem.Swap));
-        fprintf(file, "<td%s align=right>%s\n", bg, uval(m->smapsmapp_mem.Referenced));
       }
       rows_out += bhi-blo;
       if( rows_out > 25 )
@@ -3123,20 +3120,18 @@ analyze_emit_smaps_table(analyze_t *self, FILE *file, meminfo_t *v)
  * analyze_emit_table_header
  * ------------------------------------------------------------------------- */
 
-static const char *const virtual_memory_column_titles[][5] = {
+static const char *const virtual_memory_column_titles[][4] = {
   [EMIT_TYPE_LIBRARY] = {
     "<abbr title=\"Largest value\"><i>RSS</i></abbr>",
     "<abbr title=\"Largest value\"><i>Size</i></abbr>",
     "<abbr title=\"Sum of values\">PSS</abbr> ",
     "<abbr title=\"Largest value\"><i>Swap</i></abbr>",
-    "<abbr title=\"Largest value\"><i>Referenced</i></abbr>",
   },
   [EMIT_TYPE_APPLICATION] = {
     "RSS",
     "Size",
     "PSS ",
     "Swap",
-    "Referenced",
   },
 };
 
@@ -3147,7 +3142,7 @@ analyze_emit_table_header(const analyze_t *self, FILE *file, enum emit_type type
   fprintf(file, "<tr>\n");
   fprintf(file, "<th"TP" rowspan=3>%s\n", emit_type_titles[type]);
   fprintf(file, "<th"TP" colspan=4>%s\n", "RSS / Status");
-  fprintf(file, "<th"TP" rowspan=2 colspan=5>%s\n", "Virtual<br>Memory");
+  fprintf(file, "<th"TP" rowspan=2 colspan=4>%s\n", "Virtual<br>Memory");
   fprintf(file, "<th"TP" rowspan=3><abbr title=\"Shared Clean + Shared Dirty\">RSS<br>COW<br>Est.</abbr>\n");
   fprintf(file, "<th"TP" colspan=%d>%s\n", self->ntypes-1, "RSS / Class");
 
@@ -3304,7 +3299,6 @@ analyze_emit_table(analyze_t *self, FILE *file, const char *work, enum emit_type
     fprintf(file, "<td %s align=right>%s\n", bg, uval(s->Size));
     fprintf(file, "<td %s align=right>%s\n", bg, uval(s->Pss));
     fprintf(file, "<td %s align=right>%s\n", bg, uval(s->Swap));
-    fprintf(file, "<td %s align=right>%s\n", bg, uval(s->Referenced));
 
     fprintf(file, "<td %s align=right>%s\n", bg, uval(meminfo_cowest(s)));
 
