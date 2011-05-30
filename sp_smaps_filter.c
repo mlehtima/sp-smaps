@@ -1229,6 +1229,30 @@ pidinfo_parse(pidinfo_t *self, char *line)
   {
     self->VmPTE = strtoul(val, 0, 10);
   }
+  else if( !strcmp(key, "State")
+        || !strcmp(key, "Tgid")
+        || !strcmp(key, "TracerPid")
+        || !strcmp(key, "Uid")
+        || !strcmp(key, "Gid")
+        || !strcmp(key, "FDSize")
+        || !strcmp(key, "Groups")
+        || !strcmp(key, "VmPeak")
+        || !strcmp(key, "VmHWM")
+        || !strcmp(key, "SigQ")
+        || !strcmp(key, "SigPnd")
+        || !strcmp(key, "ShdPnd")
+        || !strcmp(key, "SigBlk")
+        || !strcmp(key, "SigCgt")
+        || !strcmp(key, "SigIgn")
+        || !strcmp(key, "CapInh")
+        || !strcmp(key, "CapPrm")
+        || !strcmp(key, "CapEff")
+        || !strcmp(key, "CapBnd")
+        || !strcmp(key, "voluntary_ctxt_switches")
+        || !strcmp(key, "nonvoluntary_ctxt_switches")
+      )
+  {
+  }
   else
   {
     static unknown_t unkn = UNKNOWN_INIT;
