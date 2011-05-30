@@ -3145,16 +3145,20 @@ analyze_emit_table_header(const analyze_t *self, FILE *file, enum emit_type type
   fprintf(file, "<th"TP" colspan=4>%s\n", "RSS / Status");
   fprintf(file, "<th"TP" rowspan=2 colspan=4>%s\n", "Virtual<br>Memory");
   fprintf(file, "<th"TP" rowspan=3><abbr title=\"Shared Clean + Shared Dirty\">RSS<br>COW<br>Est.</abbr>\n");
-  fprintf(file, "<th"TP" colspan=%d>%s\n", self->ntypes-1, "RSS / Class");
-
+  if( type == EMIT_TYPE_APPLICATION )
+  {
+    fprintf(file, "<th"TP" colspan=%d>%s\n", self->ntypes-1, "RSS / Class");
+  }
   fprintf(file, "<tr>\n");
   fprintf(file, "<th"TP" colspan=2>%s\n", "Dirty");
   fprintf(file, "<th"TP" colspan=2>%s\n", "Clean");
-  for( int i = 1; i < self->ntypes; ++i )
+  if( type == EMIT_TYPE_APPLICATION )
   {
-    fprintf(file, "<th"TP" rowspan=2>%s\n", self->stype[i]);
+    for( int i = 1; i < self->ntypes; ++i )
+    {
+      fprintf(file, "<th"TP" rowspan=2>%s\n", self->stype[i]);
+    }
   }
-
   fprintf(file, "<tr>\n");
   if( type == EMIT_TYPE_LIBRARY )
   {
@@ -3322,10 +3326,13 @@ analyze_emit_table(analyze_t *self, FILE *file, const char *work, enum emit_type
 
     fprintf(file, "<td %s align=right>%s\n", bg, uval(meminfo_cowest(s)));
 
-    for( int t = 1; t < self->ntypes; ++t )
+    if (type == EMIT_TYPE_APPLICATION)
     {
-      meminfo_t *s = analyze_mem(self, a, t, type);
-      fprintf(file, "<td %s align=right>%s\n", bg, uval(meminfo_total(s)));
+      for( int t = 1; t < self->ntypes; ++t )
+      {
+	meminfo_t *s = analyze_mem(self, a, t, type);
+	fprintf(file, "<td %s align=right>%s\n", bg, uval(meminfo_total(s)));
+      }
     }
   }
   fprintf(file, "</table>\n");
