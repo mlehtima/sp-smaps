@@ -893,15 +893,7 @@ void         smapsfilt_delete_cb(void *self);
 void
 meminfo_ctor(meminfo_t *self)
 {
-  self->Size = 0;
-  self->Rss  = 0;
-  self->Shared_Clean  = 0;
-  self->Shared_Dirty  = 0;
-  self->Private_Clean = 0;
-  self->Private_Dirty = 0;
-  self->Pss = 0;
-  self->Swap = 0;
-  self->Referenced = 0;
+  memset(self, 0, sizeof(*self));
 }
 
 /* ------------------------------------------------------------------------- *
