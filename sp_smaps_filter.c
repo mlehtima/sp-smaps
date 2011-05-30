@@ -3252,6 +3252,7 @@ analyze_emit_library_table_cmp(const void *a1, const void *a2)
 static void
 analyze_emit_table(analyze_t *self, FILE *file, const char *work, enum emit_type type)
 {
+  int omitted_libs = 0;
   int items = 0;
   if( type == EMIT_TYPE_LIBRARY )
     items = self->npaths;
@@ -3278,6 +3279,17 @@ analyze_emit_table(analyze_t *self, FILE *file, const char *work, enum emit_type
   {
     int a = lut[i];
     const char *title = NULL;
+    const char *bg = ((i/3)&1) ? D1 : D2;
+    meminfo_t *s = analyze_mem(self, a, 0, type);
+
+    /* One-page mappings are not interesting, prune them from the Object Values
+     * table.
+     */
+    if (type == EMIT_TYPE_LIBRARY && s->Size <= 4)
+    {
+      ++omitted_libs;
+      continue;
+    }
 
     fprintf(file, "<tr>\n");
     fprintf(file, "<th bgcolor=\"#bfffff\" align=left>");
@@ -3312,9 +3324,6 @@ analyze_emit_table(analyze_t *self, FILE *file, const char *work, enum emit_type
     }
     fprintf(file, "</a>\n");
 
-    meminfo_t *s = analyze_mem(self, a, 0, type);
-    const char *bg = ((i/3)&1) ? D1 : D2;
-
     fprintf(file, "<td %s align=right>%s\n", bg, uval(s->Private_Dirty));
     fprintf(file, "<td %s align=right>%s\n", bg, uval(s->Shared_Dirty));
     fprintf(file, "<td %s align=right>%s\n", bg, uval(s->Private_Clean));
@@ -3336,6 +3345,13 @@ analyze_emit_table(analyze_t *self, FILE *file, const char *work, enum emit_type
     }
   }
   fprintf(file, "</table>\n");
+  if (omitted_libs)
+  {
+    fprintf(file,
+	"<b>Note:</b> removed %d entries from the table with <i>Size</i> of "
+	"at most 4 kilobytes.\n",
+	omitted_libs);
+  }
 }
 
 /* ------------------------------------------------------------------------- *
