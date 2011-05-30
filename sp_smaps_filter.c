@@ -82,6 +82,7 @@
 
 #define HTML_DOWN_ARROW "&#x25BE;"
 #define HTML_ELLIPSIS   "&#0133;"
+#define TITLE_MAX_LEN   60
 
 /* ------------------------------------------------------------------------- *
  * Runtime Manual
@@ -3272,32 +3273,40 @@ analyze_emit_table(analyze_t *self, FILE *file, const char *work, enum emit_type
   for( int i = 0; i < items; ++i )
   {
     int a = lut[i];
+    const char *title = NULL;
 
     fprintf(file, "<tr>\n");
     fprintf(file, "<th bgcolor=\"#bfffff\" align=left>");
+
     if( type == EMIT_TYPE_LIBRARY )
     {
-      fprintf(file, "<a href=\"%s/lib%03d.html\">%s</a>\n",
-            work, a, path_basename(self->spath[a]));
+      fprintf(file, "<a href=\"%s/lib%03d.html\">", work, a);
+      title = path_basename(self->spath[a]);
     }
     else if( type == EMIT_TYPE_APPLICATION )
     {
       fprintf(file, "<a href=\"%s/app%03d.html\">", work, a);
-      if( strlen(self->sappl[a]) < 60 )
-      {
-        fprintf(file, "%s", self->sappl[a]);
-      }
-      else
-      {
-        fprintf(file, "<abbr title=\"%s\">", self->sappl[a]);
-        for( int j = 0; j < 60; ++j )
-        {
-          fprintf(file, "%c", self->sappl[a][j]);
-        }
-        fprintf(file, HTML_ELLIPSIS "</abbr>");
-      }
-      fprintf(file, "</a>\n");
+      title = self->sappl[a];
     }
+    else
+    {
+      abort();
+    }
+    if( strlen(title) < TITLE_MAX_LEN )
+    {
+      fprintf(file, "%s", title);
+    }
+    else
+    {
+      fprintf(file, "<abbr title=\"%s\">", title);
+      fprintf(file, HTML_ELLIPSIS);
+      for( size_t j = strlen(title)-TITLE_MAX_LEN; j < strlen(title); ++j )
+      {
+	fprintf(file, "%c", title[j]);
+      }
+      fprintf(file, "</abbr>");
+    }
+    fprintf(file, "</a>\n");
 
     meminfo_t *s = analyze_mem(self, a, 0, type);
     const char *bg = ((i/3)&1) ? D1 : D2;
