@@ -232,6 +232,7 @@ install-visualize-data::
 	install -m644 data/jquery.min.js               $(ROOT)$(DATA)/jquery.min.js
 	install -m644 data/jquery.tablesorter.min.js   $(ROOT)$(DATA)/jquery.tablesorter.min.js
 	install -m644 data/tablesorter.css             $(ROOT)$(DATA)/tablesorter.css
+	install -m644 data/expander.js                 $(ROOT)$(DATA)/expander.js
 
 # -----------------------------------------------------------------------------
 # Target specific Rules

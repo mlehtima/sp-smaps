@@ -847,7 +847,7 @@ void       analyze_get_librange          (analyze_t *self, int lo, int hi, int *
 int        analyze_emit_lib_html         (analyze_t *self, smapssnap_t *snap, const char *work);
 int        analyze_emit_app_html         (analyze_t *self, smapssnap_t *snap, const char *work);
 void       analyze_emit_smaps_table      (analyze_t *self, FILE *file, meminfo_t *v);
-void       analyze_emit_process_hierarchy(analyze_t *self, FILE *file, smapsproc_t *proc, const char *work);
+void       analyze_emit_process_hierarchy(analyze_t *self, FILE *file, smapsproc_t *proc, const char *work, int recursion_depth);
 int        analyze_emit_main_page        (analyze_t *self, smapssnap_t *snap, const char *path);
 
 /* ------------------------------------------------------------------------- *
@@ -3181,11 +3181,13 @@ analyze_emit_table_header(const analyze_t *self, FILE *file, enum emit_type type
 
 void
 analyze_emit_process_hierarchy(analyze_t *self, FILE *file, smapsproc_t *proc,
-                               const char *work)
+                               const char *work, int recursion_depth)
 {
   if( proc->smapsproc_children.size )
   {
-    fprintf(file, "<ul>\n");
+    fprintf(file, "<ul id='children_of_%d' %s>\n",
+	proc->smapsproc_AID,
+	recursion_depth == 1 ? "style='display:none;'" : "");
     for( int i = 0; i < proc->smapsproc_children.size; ++i )
     {
       smapsproc_t *sub = proc->smapsproc_children.data[i];
@@ -3196,7 +3198,16 @@ analyze_emit_process_hierarchy(analyze_t *self, FILE *file, smapsproc_t *proc,
               sub->smapsproc_pid.Name,
               sub->smapsproc_pid.Pid);
 
-      analyze_emit_process_hierarchy(self, file, sub, work);
+      if (recursion_depth == 0)
+      {
+	fprintf(file, "<span style=\"text-decoration: underline; "
+	    "cursor: pointer;\" "
+	    "onClick=\"toggleBlockText('children_of_%d', "
+	    "this, '(expand)','(collapse)');\">(expand)</span>\n",
+	    sub->smapsproc_AID);
+      }
+
+      analyze_emit_process_hierarchy(self, file, sub, work, recursion_depth+1);
     }
     fprintf(file, "</ul>\n");
   }
@@ -3397,6 +3408,12 @@ create_javascript_files(const char *workdir)
   if (ret < 0)
     goto out;
 
+  snprintf(dst, sizeof(dst), "%s/expander.js", workdir);
+  dst[sizeof(dst)-1] = 0;
+  ret = file_copy("/usr/share/sp-smaps-visualize/expander.js", dst);
+  if (ret < 0)
+    goto out;
+
 out:
   return ret;
 }
@@ -3495,6 +3512,7 @@ analyze_emit_main_page(analyze_t *self, smapssnap_t *snap, const char *path)
   fprintf(file, "<script src=\"%s/jquery.min.js\"></script>\n", work);
   fprintf(file, "<script src=\"%s/jquery.metadata.js\"></script>\n", work);
   fprintf(file, "<script src=\"%s/jquery.tablesorter.min.js\"></script>\n", work);
+  fprintf(file, "<script src=\"%s/expander.js\"></script>\n", work);
   fprintf(file, "<script>$(document).ready(function() "
                 "{ $(\".tablesorter\").tablesorter(); } );</script>\n");
 
@@ -3526,7 +3544,7 @@ analyze_emit_main_page(analyze_t *self, smapssnap_t *snap, const char *path)
    * - - - - - - - - - - - - - - - - - - - */
 
   fprintf(file, "<a name=\"process_hierarchy\"><h1>Process Hierarchy</h1></a>\n");
-  analyze_emit_process_hierarchy(self, file, &snap->smapssnap_rootproc, work);
+  analyze_emit_process_hierarchy(self, file, &snap->smapssnap_rootproc, work, 0);
 
   /* - - - - - - - - - - - - - - - - - - - *
    * application table
