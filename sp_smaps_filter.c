@@ -3401,6 +3401,49 @@ out:
   return ret;
 }
 
+static void *
+_array_remove_elem(array_t *self, const void *elem)
+{
+  size_t i;
+  for (i=0; i < array_size(self); ++i)
+  {
+    if (array_get(self, i) == elem)
+    {
+      return array_rem(self, i);
+    }
+  }
+  return NULL;
+}
+
+static void
+analyze_prune_kthreads(smapssnap_t *snap)
+{
+  size_t i, j;
+  smapsproc_t *root = &snap->smapssnap_rootproc;
+  for (i=0; i < root->smapsproc_children.size; ++i)
+  {
+    smapsproc_t *kthreadd = array_get(&root->smapsproc_children, i);
+    if (!kthreadd)
+      continue;
+    const char *subname = kthreadd->smapsproc_pid.Name;
+    if (subname && strcmp(subname, "kthreadd") == 0)
+    {
+      const size_t kthread_cnt = array_size(&kthreadd->smapsproc_children);
+      for (j=0; j < kthread_cnt; ++j)
+      {
+	const smapsproc_t *kthread = array_get(&kthreadd->smapsproc_children, j);
+	if (!kthread)
+	  continue;
+	_array_remove_elem(&snap->smapssnap_proclist, kthread);
+      }
+      array_clear(&kthreadd->smapsproc_children);
+      _array_remove_elem(&snap->smapssnap_proclist, kthreadd);
+      _array_remove_elem(&snap->smapssnap_rootproc.smapsproc_children, kthreadd);
+      break;
+    }
+  }
+}
+
 int
 analyze_emit_main_page(analyze_t *self, smapssnap_t *snap, const char *path)
 {
@@ -4692,7 +4735,10 @@ smapsfilt_write_outputs(smapsfilt_t *self)
       char *dest = path_make_output(self->smapsfilt_output,
                                     snap->smapssnap_source,
                                     ".html");
-
+      /* SMAPS does not provide any data for kernel threads, so remove them to
+       * reduce dummy elements from the analysis report.
+       */
+      analyze_prune_kthreads(snap);
       analyze_t *az   = analyze_create();
       analyze_enumerate_data(az, snap);
       analyze_accumulate_data(az);
