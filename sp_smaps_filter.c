@@ -969,6 +969,21 @@ meminfo_parse(meminfo_t *self, char *line)
   }
 }
 
+static int
+meminfo_all_zeroes(const meminfo_t *self)
+{
+  return self->Size == 0
+    && self->Rss == 0
+    && self->Shared_Clean == 0
+    && self->Shared_Dirty == 0
+    && self->Private_Clean == 0
+    && self->Private_Dirty == 0
+    && self->Pss == 0
+    && self->Swap == 0
+    && self->Referenced == 0
+    ;
+}
+
 /* ------------------------------------------------------------------------- *
  * meminfo_accumulate_appdata
  * ------------------------------------------------------------------------- */
@@ -3288,6 +3303,10 @@ analyze_emit_table(analyze_t *self, FILE *file, const char *work, enum emit_type
     if (type == EMIT_TYPE_LIBRARY && s->Size <= 4)
     {
       ++omitted_libs;
+      continue;
+    }
+    else if (type == EMIT_TYPE_APPLICATION && meminfo_all_zeroes(s))
+    {
       continue;
     }
 
