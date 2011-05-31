@@ -2907,8 +2907,8 @@ analyze_emit_lib_html(analyze_t *self, smapssnap_t *snap, const char *work)
      * - - - - - - - - - - - - - - - - - - - */
 
     fprintf(file, "<h1>%s XREF</h1>\n", emit_type_titles[EMIT_TYPE_APPLICATION]);
-    fprintf(file, "<table border=1>\n");
-
+    /* Sort initially by 9th column (PSS) in descending order */
+    fprintf(file, "<table border=1 class=\"tablesorter { sortlist: [[9,1]] }\">\n");
     analyze_emit_xref_header(self, file, EMIT_TYPE_APPLICATION);
     fprintf(file, "<tbody>\n");
 
@@ -3047,8 +3047,8 @@ analyze_emit_app_html(analyze_t *self, smapssnap_t *snap, const char *work)
      * - - - - - - - - - - - - - - - - - - - */
 
     fprintf(file, "<h1>%s XREF</h1>\n", "Mapping");
-    fprintf(file, "<table border=1>\n");
-
+    /* Sort initially by 9th column (PSS) in descending order */
+    fprintf(file, "<table border=1 class=\"tablesorter { sortlist: [[9,1]] }\">\n");
     analyze_emit_xref_header(self, file, EMIT_TYPE_OBJECT);
     fprintf(file, "<tbody>\n");
 
