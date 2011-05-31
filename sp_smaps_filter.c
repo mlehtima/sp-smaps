@@ -2687,6 +2687,23 @@ analyze_accumulate_data(analyze_t *self)
   }
 }
 
+static void
+analyze_html_header(FILE *file, const char *title, const char *work)
+{
+  fprintf(file, "<html>\n");
+  fprintf(file, "<head>\n");
+  fprintf(file, "<title>%s</title>\n", title);
+  fprintf(file, "<link rel=\"stylesheet\" type=\"text/css\" href=\"%s/tablesorter.css\" />", work);
+  fprintf(file, "</head>\n");
+  fprintf(file, "<body>\n");
+  fprintf(file, "<script src=\"%s/jquery.min.js\"></script>\n", work);
+  fprintf(file, "<script src=\"%s/jquery.metadata.js\"></script>\n", work);
+  fprintf(file, "<script src=\"%s/jquery.tablesorter.min.js\"></script>\n", work);
+  fprintf(file, "<script src=\"%s/expander.js\"></script>\n", work);
+  fprintf(file, "<script>$(document).ready(function() "
+                "{ $(\".tablesorter\").tablesorter(); } );</script>\n");
+}
+
 #define TP " bgcolor=\"#ffffbf\" "
 #define LT " bgcolor=\"#bfffff\" "
 #define D1 " bgcolor=\"#f4f4f4\" "
@@ -2876,15 +2893,7 @@ analyze_emit_lib_html(analyze_t *self, smapssnap_t *snap, const char *work)
       goto cleanup;
     }
 
-    /* - - - - - - - - - - - - - - - - - - - *
-     * html header
-     * - - - - - - - - - - - - - - - - - - - */
-
-    fprintf(file, "<html>\n");
-    fprintf(file, "<head>\n");
-    fprintf(file, "<title>%s</title>\n", path_basename(self->spath[l]));
-    fprintf(file, "</head>\n");
-    fprintf(file, "<body>\n");
+    analyze_html_header(file, path_basename(self->spath[l]), ".");
 
     /* - - - - - - - - - - - - - - - - - - - *
      * summary table
@@ -3029,15 +3038,7 @@ analyze_emit_app_html(analyze_t *self, smapssnap_t *snap, const char *work)
       goto cleanup;
     }
 
-    /* - - - - - - - - - - - - - - - - - - - *
-     * html header
-     * - - - - - - - - - - - - - - - - - - - */
-
-    fprintf(file, "<html>\n");
-    fprintf(file, "<head>\n");
-    fprintf(file, "<title>%s</title>\n", self->sappl[a]);
-    fprintf(file, "</head>\n");
-    fprintf(file, "<body>\n");
+    analyze_html_header(file, self->sappl[a], ".");
 
     /* - - - - - - - - - - - - - - - - - - - *
      * summary table
@@ -3594,22 +3595,7 @@ analyze_emit_main_page(analyze_t *self, smapssnap_t *snap, const char *path)
     perror(path); goto cleanup;
   }
 
-  /* - - - - - - - - - - - - - - - - - - - *
-   * html header
-   * - - - - - - - - - - - - - - - - - - - */
-
-  fprintf(file, "<html>\n");
-  fprintf(file, "<head>\n");
-  fprintf(file, "<title>%s</title>\n", smapssnap_get_source(snap));
-  fprintf(file, "<link rel=\"stylesheet\" type=\"text/css\" href=\"%s/tablesorter.css\" />", work);
-  fprintf(file, "</head>\n");
-  fprintf(file, "<body>\n");
-  fprintf(file, "<script src=\"%s/jquery.min.js\"></script>\n", work);
-  fprintf(file, "<script src=\"%s/jquery.metadata.js\"></script>\n", work);
-  fprintf(file, "<script src=\"%s/jquery.tablesorter.min.js\"></script>\n", work);
-  fprintf(file, "<script src=\"%s/expander.js\"></script>\n", work);
-  fprintf(file, "<script>$(document).ready(function() "
-                "{ $(\".tablesorter\").tablesorter(); } );</script>\n");
+  analyze_html_header(file, smapssnap_get_source(snap), work);
 
   /* - - - - - - - - - - - - - - - - - - - *
    * memory usage tables
