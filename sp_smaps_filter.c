@@ -4885,4 +4885,4 @@ int main(int ac, char **av)
  *
  * - - - - - - - - - - - - - - - - - - - */
 
-/* vim: set sw=4 noet */
+/* vim: set sw=2 noet */
