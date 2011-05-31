@@ -1164,17 +1164,8 @@ mapinfo_delete_cb(void *self)
 void
 pidinfo_ctor(pidinfo_t *self)
 {
-  self->Name    = strdup("<noname>");
-  self->PPid    = 0;
-  self->Threads = 0;
-  self->VmSize  = 0;
-  self->VmLck   = 0;
-  self->VmRSS   = 0;
-  self->VmData  = 0;
-  self->VmStk   = 0;
-  self->VmExe   = 0;
-  self->VmLib   = 0;
-  self->VmPTE   = 0;
+  memset(self, 0, sizeof(*self));
+  self->Name = strdup("<noname>");
 }
 
 /* ------------------------------------------------------------------------- *
