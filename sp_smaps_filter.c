@@ -2928,15 +2928,11 @@ analyze_emit_lib_html(analyze_t *self, smapssnap_t *snap, const char *work)
         m = self->mapp_tab->data[i];
         t = m->smapsmapp_TID;
 
-        fprintf(file, "<tr>\n");
-
-        if( i == blo )
-        {
-          fprintf(file,
-                  "<th"LT"rowspan=%d align=left>"
-                  "<a href=\"app%03d.html\">%s</a>\n",
-                  bhi-blo, a, path_basename(self->sappl[a]));
-        }
+        fprintf(file,
+                "<tr>\n"
+                "<th"LT"align=left>"
+                "<a href=\"app%03d.html\">%s</a>\n",
+                a, path_basename(self->sappl[a]));
 
         const char *bg = (((i-base)/3)&1) ? D1 : D2;
         fprintf(file, "<td%s align=left>%s\n", bg, m->smapsmapp_map.type);
@@ -3073,15 +3069,11 @@ analyze_emit_app_html(analyze_t *self, smapssnap_t *snap, const char *work)
         m = self->mapp_tab->data[i];
         t = m->smapsmapp_TID;
 
-        fprintf(file, "<tr>\n");
-
-        if( i == blo )
-        {
-          fprintf(file,
-                  "<th"LT"rowspan=%d align=left>"
-                  "<a href=\"lib%03d.html\">%s</a>\n",
-                  bhi-blo, l, path_basename(self->spath[l]));
-        }
+        fprintf(file,
+                "<tr>\n"
+                "<th"LT"align=left>"
+                "<a href=\"lib%03d.html\">%s</a>\n",
+                l, path_basename(self->spath[l]));
 
         const char *bg = (((i-base)/3)&1) ? D1 : D2;
 
