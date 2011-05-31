@@ -2697,7 +2697,7 @@ analyze_html_header(FILE *file, const char *title, const char *work)
   fprintf(file, "<body>\n");
   fprintf(file, "<script src=\"%s/jquery.min.js\"></script>\n", work);
   fprintf(file, "<script src=\"%s/jquery.metadata.js\"></script>\n", work);
-  fprintf(file, "<script src=\"%s/jquery.tablesorter.min.js\"></script>\n", work);
+  fprintf(file, "<script src=\"%s/jquery.tablesorter.js\"></script>\n", work);
   fprintf(file, "<script src=\"%s/expander.js\"></script>\n", work);
   fprintf(file, "<script>$(document).ready(function() "
                 "{ $(\".tablesorter\").tablesorter(); } );</script>\n");
@@ -3480,9 +3480,9 @@ create_javascript_files(const char *workdir)
   if (ret < 0)
     goto out;
 
-  snprintf(dst, sizeof(dst), "%s/jquery.tablesorter.min.js", workdir);
+  snprintf(dst, sizeof(dst), "%s/jquery.tablesorter.js", workdir);
   dst[sizeof(dst)-1] = 0;
-  ret = file_copy("/usr/share/sp-smaps-visualize/jquery.tablesorter.min.js", dst);
+  ret = file_copy("/usr/share/sp-smaps-visualize/jquery.tablesorter.js", dst);
   if (ret < 0)
     goto out;
 
