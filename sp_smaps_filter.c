@@ -628,6 +628,8 @@ struct meminfo_t
   unsigned Pss;
   unsigned Swap;
   unsigned Referenced;
+  unsigned Anonymous;
+  unsigned Locked;
 };
 
 void       meminfo_ctor              (meminfo_t *self);
@@ -951,6 +953,14 @@ meminfo_parse(meminfo_t *self, char *line)
   {
     self->Referenced   = strtoul(val, 0, 10);
   }
+  else if( !strcmp(key, "Anonymous") )
+  {
+    self->Anonymous = strtoul(val, 0, 10);
+  }
+  else if( !strcmp(key, "Locked") )
+  {
+    self->Locked = strtoul(val, 0, 10);
+  }
   else
   {
     static unknown_t unkn = UNKNOWN_INIT;
@@ -973,6 +983,8 @@ meminfo_all_zeroes(const meminfo_t *self)
     && self->Pss == 0
     && self->Swap == 0
     && self->Referenced == 0
+    && self->Anonymous == 0
+    && self->Locked == 0
     ;
 }
 
@@ -992,6 +1004,8 @@ meminfo_accumulate_appdata(meminfo_t *self, const meminfo_t *that)
   pusum(&self->Pss,           that->Pss);
   pusum(&self->Swap,          that->Swap);
   pusum(&self->Referenced,    that->Referenced);
+  pusum(&self->Anonymous,     that->Anonymous);
+  pusum(&self->Locked,        that->Locked);
 }
 
 /* ------------------------------------------------------------------------- *
@@ -1010,6 +1024,8 @@ meminfo_accumulate_libdata(meminfo_t *self, const meminfo_t *that)
   pusum(&self->Pss,           that->Pss);
   pumax(&self->Swap,          that->Swap);
   pumax(&self->Referenced,    that->Referenced);
+  pusum(&self->Anonymous,     that->Anonymous);
+  pusum(&self->Locked,        that->Locked);
 }
 
 /* ------------------------------------------------------------------------- *
@@ -1028,6 +1044,8 @@ meminfo_accumulate_maxdata(meminfo_t *self, const meminfo_t *that)
   pumax(&self->Pss,           that->Pss);
   pumax(&self->Swap,          that->Swap);
   pumax(&self->Referenced,    that->Referenced);
+  pumax(&self->Anonymous,     that->Anonymous);
+  pumax(&self->Locked,        that->Locked);
 }
 
 /* ------------------------------------------------------------------------- *
@@ -1956,6 +1974,8 @@ smapssnap_save_cap(smapssnap_t *self, const char *path)
       Pu(Pss);
       Pu(Swap);
       Pu(Referenced);
+      Pu(Anonymous);
+      Pu(Locked);
 
 #undef Pu
     }
@@ -2010,7 +2030,7 @@ smapssnap_save_csv(smapssnap_t *self, const char *path)
           "name,pid,ppid,threads,"
           "head,tail,prot,offs,node,flag,path,"
           "size,rss,shacln,shadty,pricln,pridty,"
-          "pss,swap,referenced,"
+          "pss,swap,referenced,anonymous,locked,"
           "pri,sha,cln,cow\n");
 
   /* - - - - - - - - - - - - - - - - - - - *
@@ -2039,7 +2059,7 @@ smapssnap_save_csv(smapssnap_t *self, const char *path)
               map->offs, map->node, map->flgs,
               map->path);
 
-      fprintf(file, "%u,%u,%u,%u,%u,%u,%u,%u,%u,",
+      fprintf(file, "%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u",
               mem->Size,
               mem->Rss,
               mem->Shared_Clean,
@@ -2048,7 +2068,9 @@ smapssnap_save_csv(smapssnap_t *self, const char *path)
               mem->Private_Dirty,
               mem->Pss,
               mem->Swap,
-              mem->Referenced);
+              mem->Referenced,
+              mem->Anonymous,
+              mem->Locked);
 
       fprintf(file, "%u,%u,%u,%u\n",
               mem->Private_Dirty,
@@ -2694,6 +2716,8 @@ analyze_emit_page_table(analyze_t *self, FILE *file, const meminfo_t *mtab)
   fprintf(file, "<th"TP"rowspan=2>%s\n", "Pss");
   fprintf(file, "<th"TP"rowspan=2>%s\n", "Swap");
   fprintf(file, "<th"TP"rowspan=2>%s\n", "Referenced");
+  fprintf(file, "<th"TP"rowspan=2>%s\n", "Anonymous");
+  fprintf(file, "<th"TP"rowspan=2>%s\n", "Locked");
 
   fprintf(file, "<tr>\n");
   fprintf(file, "<th"TP">%s\n", "Private");
@@ -2718,7 +2742,8 @@ analyze_emit_page_table(analyze_t *self, FILE *file, const meminfo_t *mtab)
     fprintf(file, "<td %s align=right>%s\n", bg, uval(m->Pss));
     fprintf(file, "<td %s align=right>%s\n", bg, uval(m->Swap));
     fprintf(file, "<td %s align=right>%s\n", bg, uval(m->Referenced));
-
+    fprintf(file, "<td %s align=right>%s\n", bg, uval(m->Anonymous));
+    fprintf(file, "<td %s align=right>%s\n", bg, uval(m->Locked));
   }
   fprintf(file, "</table>\n");
 }
@@ -2742,6 +2767,8 @@ analyze_emit_xref_header(const analyze_t *self, FILE *file, enum emit_type type)
   fprintf(file, "<th"TP">%s\n", "Clean<br>Shared");
   fprintf(file, "<th"TP">%s %s\n", "Pss", HTML_DOWN_ARROW);
   fprintf(file, "<th"TP">%s\n", "Swap");
+  fprintf(file, "<th"TP">%s\n", "Anonymous");
+  fprintf(file, "<th"TP">%s\n", "Locked");
 }
 
 /* ------------------------------------------------------------------------- *
@@ -2911,6 +2938,8 @@ analyze_emit_lib_html(analyze_t *self, smapssnap_t *snap, const char *work)
         fprintf(file, "<td%s align=right>%s\n", bg, uval(m->smapsmapp_mem.Shared_Clean));
         fprintf(file, "<td%s align=right>%s\n", bg, uval(m->smapsmapp_mem.Pss));
         fprintf(file, "<td%s align=right>%s\n", bg, uval(m->smapsmapp_mem.Swap));
+        fprintf(file, "<td%s align=right>%s\n", bg, uval(m->smapsmapp_mem.Anonymous));
+        fprintf(file, "<td%s align=right>%s\n", bg, uval(m->smapsmapp_mem.Locked));
       }
       rows_out += bhi-blo;
       if( rows_out > 25 )
@@ -3069,6 +3098,8 @@ analyze_emit_app_html(analyze_t *self, smapssnap_t *snap, const char *work)
         fprintf(file, "<td%s align=right>%s\n", bg, uval(m->smapsmapp_mem.Shared_Clean));
         fprintf(file, "<td%s align=right>%s\n", bg, uval(m->smapsmapp_mem.Pss));
         fprintf(file, "<td%s align=right>%s\n", bg, uval(m->smapsmapp_mem.Swap));
+        fprintf(file, "<td%s align=right>%s\n", bg, uval(m->smapsmapp_mem.Anonymous));
+        fprintf(file, "<td%s align=right>%s\n", bg, uval(m->smapsmapp_mem.Locked));
       }
       rows_out += bhi-blo;
       if( rows_out > 25 )
@@ -3119,6 +3150,8 @@ analyze_emit_smaps_table(analyze_t *self, FILE *file, meminfo_t *v)
   fprintf(file, "<th"TP"rowspan=2>%s\n", "Pss");
   fprintf(file, "<th"TP"rowspan=2>%s\n", "Swap");
   fprintf(file, "<th"TP"rowspan=2>%s\n", "Referenced");
+  fprintf(file, "<th"TP"rowspan=2>%s\n", "Anonymous");
+  fprintf(file, "<th"TP"rowspan=2>%s\n", "Locked");
 
   fprintf(file, "<tr>\n");
   fprintf(file, "<th"TP">%s\n", "Private");
@@ -3143,6 +3176,8 @@ analyze_emit_smaps_table(analyze_t *self, FILE *file, meminfo_t *v)
     fprintf(file, "<td %s align=right>%s\n", bg, uval(m->Pss));
     fprintf(file, "<td %s align=right>%s\n", bg, uval(m->Swap));
     fprintf(file, "<td %s align=right>%s\n", bg, uval(m->Referenced));
+    fprintf(file, "<td %s align=right>%s\n", bg, uval(m->Anonymous));
+    fprintf(file, "<td %s align=right>%s\n", bg, uval(m->Locked));
   }
 
   fprintf(file, "</table>\n");
@@ -3152,18 +3187,21 @@ analyze_emit_smaps_table(analyze_t *self, FILE *file, meminfo_t *v)
  * analyze_emit_table_header
  * ------------------------------------------------------------------------- */
 
-static const char *const virtual_memory_column_titles[][4] = {
+#define VM_COLUMN_COUNT 5
+static const char *const virtual_memory_column_titles[][VM_COLUMN_COUNT] = {
   [EMIT_TYPE_LIBRARY] = {
     "<abbr title=\"Largest value\"><i>RSS</i></abbr>",
     "<abbr title=\"Largest value\"><i>Size</i></abbr>",
     "<abbr title=\"Sum of values\">PSS</abbr> ",
     "<abbr title=\"Largest value\"><i>Swap</i></abbr>",
+    "<abbr title=\"Sum of values\">Locked</abbr>",
   },
   [EMIT_TYPE_APPLICATION] = {
     "RSS",
     "Size",
     "PSS ",
     "Swap",
+    "Locked",
   },
 };
 
@@ -3174,7 +3212,7 @@ analyze_emit_table_header(const analyze_t *self, FILE *file, enum emit_type type
   fprintf(file, "<tr>\n");
   fprintf(file, "<th"TP" rowspan=3>%s\n", emit_type_titles[type]);
   fprintf(file, "<th"TP" colspan=4>%s\n", "RSS / Status");
-  fprintf(file, "<th"TP" rowspan=2 colspan=4>%s\n", "Virtual<br>Memory");
+  fprintf(file, "<th"TP" rowspan=2 colspan=%d>%s\n", VM_COLUMN_COUNT, "Virtual<br>Memory");
   fprintf(file, "<th"TP" rowspan=3><abbr title=\"Shared Clean + Shared Dirty\">RSS<br>COW<br>Est.</abbr>\n");
   if( type == EMIT_TYPE_APPLICATION )
   {
@@ -3367,6 +3405,7 @@ analyze_emit_table(analyze_t *self, FILE *file, const char *work, enum emit_type
     fprintf(file, "<td %s align=right>%s\n", bg, uval(s->Size));
     fprintf(file, "<td %s align=right>%s\n", bg, uval(s->Pss));
     fprintf(file, "<td %s align=right>%s\n", bg, uval(s->Swap));
+    fprintf(file, "<td %s align=right>%s\n", bg, uval(s->Locked));
 
     fprintf(file, "<td %s align=right>%s\n", bg, uval(meminfo_cowest(s)));
 
