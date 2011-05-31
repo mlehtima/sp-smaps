@@ -694,8 +694,10 @@ struct pidinfo_t
   int      Pid;
   int      PPid;
   int      Threads;
+  unsigned VmPeak;
   unsigned VmSize;
   unsigned VmLck;
+  unsigned VmHWM;
   unsigned VmRSS;
   unsigned VmData;
   unsigned VmStk;
@@ -1205,6 +1207,10 @@ pidinfo_parse(pidinfo_t *self, char *line)
   {
     self->Threads       = strtol(val, 0, 10);
   }
+  else if( !strcmp(key, "VmPeak") )
+  {
+    self->VmPeak        = strtoul(val, 0, 10);
+  }
   else if( !strcmp(key, "VmSize") )
   {
     self->VmSize        = strtoul(val, 0, 10);
@@ -1212,6 +1218,10 @@ pidinfo_parse(pidinfo_t *self, char *line)
   else if( !strcmp(key, "VmLck") )
   {
     self->VmLck = strtoul(val, 0, 10);
+  }
+  else if( !strcmp(key, "VmHWM") )
+  {
+    self->VmHWM = strtoul(val, 0, 10);
   }
   else if( !strcmp(key, "VmRSS") )
   {
@@ -1244,8 +1254,6 @@ pidinfo_parse(pidinfo_t *self, char *line)
         || !strcmp(key, "Gid")
         || !strcmp(key, "FDSize")
         || !strcmp(key, "Groups")
-        || !strcmp(key, "VmPeak")
-        || !strcmp(key, "VmHWM")
         || !strcmp(key, "SigQ")
         || !strcmp(key, "SigPnd")
         || !strcmp(key, "ShdPnd")
@@ -1425,8 +1433,10 @@ smapsproc_are_same(smapsproc_t *self, smapsproc_t *that)
 
 #if 01
 # define cp(v) if( self->smapsproc_pid.v != that->smapsproc_pid.v ) return 0;
+  cp(VmPeak)
   cp(VmSize)
   cp(VmLck)
+  cp(VmHWM)
   cp(VmRSS)
   cp(VmData)
   cp(VmStk)
@@ -1926,11 +1936,22 @@ smapssnap_save_cap(smapssnap_t *self, const char *path)
     Pi(PPid);
     Pi(Threads);
 
-    if( pi->VmSize || pi->VmLck || pi->VmRSS || pi->VmData ||
-        pi->VmStk  || pi->VmExe || pi->VmLib  || pi->VmPTE )
+    if( pi->VmPeak
+     || pi->VmSize
+     || pi->VmLck
+     || pi->VmHWM
+     || pi->VmRSS
+     || pi->VmData
+     || pi->VmStk
+     || pi->VmExe
+     || pi->VmLib
+     || pi->VmPTE
+     )
     {
+      Pu(VmPeak);
       Pu(VmSize);
       Pu(VmLck);
+      Pu(VmHWM);
       Pu(VmRSS);
       Pu(VmData);
       Pu(VmStk);
