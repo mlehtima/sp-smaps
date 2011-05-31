@@ -4930,3 +4930,5 @@ int main(int ac, char **av)
  * sp_smaps_diff
  *
  * - - - - - - - - - - - - - - - - - - - */
+
+/* vim: set sw=4 noet */
