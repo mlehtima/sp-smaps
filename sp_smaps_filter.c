@@ -2916,7 +2916,7 @@ analyze_emit_lib_html(analyze_t *self, smapssnap_t *snap, const char *work)
 
     analyze_get_librange(self, 0, self->mapp_tab->size, &alo, &ahi, l);
 
-    for( int base=alo; alo < ahi; alo = bhi )
+    for( ; alo < ahi; alo = bhi )
     {
       m = self->mapp_tab->data[alo];
       a = m->smapsmapp_AID;
@@ -2934,19 +2934,18 @@ analyze_emit_lib_html(analyze_t *self, smapssnap_t *snap, const char *work)
                 "<a href=\"app%03d.html\">%s</a>\n",
                 a, path_basename(self->sappl[a]));
 
-        const char *bg = (((i-base)/3)&1) ? D1 : D2;
-        fprintf(file, "<td%s align=left>%s\n", bg, m->smapsmapp_map.type);
-        fprintf(file, "<td%s align=left style='font-family: monospace;'>%s\n", bg, m->smapsmapp_map.prot);
-        fprintf(file, "<td%s align=right>%s\n", bg, uval(m->smapsmapp_mem.Size));
-        fprintf(file, "<td%s align=right>%s\n", bg, uval(m->smapsmapp_mem.Rss));
-        fprintf(file, "<td%s align=right>%s\n", bg, uval(m->smapsmapp_mem.Private_Dirty));
-        fprintf(file, "<td%s align=right>%s\n", bg, uval(m->smapsmapp_mem.Shared_Dirty));
-        fprintf(file, "<td%s align=right>%s\n", bg, uval(m->smapsmapp_mem.Private_Clean));
-        fprintf(file, "<td%s align=right>%s\n", bg, uval(m->smapsmapp_mem.Shared_Clean));
-        fprintf(file, "<td%s align=right>%s\n", bg, uval(m->smapsmapp_mem.Pss));
-        fprintf(file, "<td%s align=right>%s\n", bg, uval(m->smapsmapp_mem.Swap));
-        fprintf(file, "<td%s align=right>%s\n", bg, uval(m->smapsmapp_mem.Anonymous));
-        fprintf(file, "<td%s align=right>%s\n", bg, uval(m->smapsmapp_mem.Locked));
+        fprintf(file, "<td align=left>%s\n", m->smapsmapp_map.type);
+        fprintf(file, "<td align=left style='font-family: monospace;'>%s\n", m->smapsmapp_map.prot);
+        fprintf(file, "<td align=right>%s\n", uval(m->smapsmapp_mem.Size));
+        fprintf(file, "<td align=right>%s\n", uval(m->smapsmapp_mem.Rss));
+        fprintf(file, "<td align=right>%s\n", uval(m->smapsmapp_mem.Private_Dirty));
+        fprintf(file, "<td align=right>%s\n", uval(m->smapsmapp_mem.Shared_Dirty));
+        fprintf(file, "<td align=right>%s\n", uval(m->smapsmapp_mem.Private_Clean));
+        fprintf(file, "<td align=right>%s\n", uval(m->smapsmapp_mem.Shared_Clean));
+        fprintf(file, "<td align=right>%s\n", uval(m->smapsmapp_mem.Pss));
+        fprintf(file, "<td align=right>%s\n", uval(m->smapsmapp_mem.Swap));
+        fprintf(file, "<td align=right>%s\n", uval(m->smapsmapp_mem.Anonymous));
+        fprintf(file, "<td align=right>%s\n", uval(m->smapsmapp_mem.Locked));
       }
     }
 
@@ -3057,7 +3056,7 @@ analyze_emit_app_html(analyze_t *self, smapssnap_t *snap, const char *work)
 
     analyze_get_apprange(self, 0, self->mapp_tab->size, &alo, &ahi, a);
 
-    for( int base=alo; alo < ahi; alo = bhi )
+    for( ; alo < ahi; alo = bhi )
     {
       m = self->mapp_tab->data[alo];
       l = m->smapsmapp_LID;
@@ -3075,20 +3074,18 @@ analyze_emit_app_html(analyze_t *self, smapssnap_t *snap, const char *work)
                 "<a href=\"lib%03d.html\">%s</a>\n",
                 l, path_basename(self->spath[l]));
 
-        const char *bg = (((i-base)/3)&1) ? D1 : D2;
-
-        fprintf(file, "<td%s align=left>%s\n", bg, m->smapsmapp_map.type);
-        fprintf(file, "<td%s align=left style='font-family: monospace;'>%s\n", bg, m->smapsmapp_map.prot);
-        fprintf(file, "<td%s align=right>%s\n", bg, uval(m->smapsmapp_mem.Size));
-        fprintf(file, "<td%s align=right>%s\n", bg, uval(m->smapsmapp_mem.Rss));
-        fprintf(file, "<td%s align=right>%s\n", bg, uval(m->smapsmapp_mem.Private_Dirty));
-        fprintf(file, "<td%s align=right>%s\n", bg, uval(m->smapsmapp_mem.Shared_Dirty));
-        fprintf(file, "<td%s align=right>%s\n", bg, uval(m->smapsmapp_mem.Private_Clean));
-        fprintf(file, "<td%s align=right>%s\n", bg, uval(m->smapsmapp_mem.Shared_Clean));
-        fprintf(file, "<td%s align=right>%s\n", bg, uval(m->smapsmapp_mem.Pss));
-        fprintf(file, "<td%s align=right>%s\n", bg, uval(m->smapsmapp_mem.Swap));
-        fprintf(file, "<td%s align=right>%s\n", bg, uval(m->smapsmapp_mem.Anonymous));
-        fprintf(file, "<td%s align=right>%s\n", bg, uval(m->smapsmapp_mem.Locked));
+        fprintf(file, "<td align=left>%s\n", m->smapsmapp_map.type);
+        fprintf(file, "<td align=left style='font-family: monospace;'>%s\n", m->smapsmapp_map.prot);
+        fprintf(file, "<td align=right>%s\n", uval(m->smapsmapp_mem.Size));
+        fprintf(file, "<td align=right>%s\n", uval(m->smapsmapp_mem.Rss));
+        fprintf(file, "<td align=right>%s\n", uval(m->smapsmapp_mem.Private_Dirty));
+        fprintf(file, "<td align=right>%s\n", uval(m->smapsmapp_mem.Shared_Dirty));
+        fprintf(file, "<td align=right>%s\n", uval(m->smapsmapp_mem.Private_Clean));
+        fprintf(file, "<td align=right>%s\n", uval(m->smapsmapp_mem.Shared_Clean));
+        fprintf(file, "<td align=right>%s\n", uval(m->smapsmapp_mem.Pss));
+        fprintf(file, "<td align=right>%s\n", uval(m->smapsmapp_mem.Swap));
+        fprintf(file, "<td align=right>%s\n", uval(m->smapsmapp_mem.Anonymous));
+        fprintf(file, "<td align=right>%s\n", uval(m->smapsmapp_mem.Locked));
       }
     }
 
