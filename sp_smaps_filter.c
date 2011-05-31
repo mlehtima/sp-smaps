@@ -80,7 +80,6 @@
 #define TOOL_NAME "sp_smaps_filter"
 #include "release.h"
 
-#define HTML_DOWN_ARROW "&#x25BE;"
 #define HTML_ELLIPSIS   "&#0133;"
 #define TITLE_MAX_LEN   60
 
@@ -2783,7 +2782,7 @@ analyze_emit_xref_header(const analyze_t *self, FILE *file, enum emit_type type)
   fprintf(file, "<th"TP">%s\n", "Dirty<br>Shared");
   fprintf(file, "<th"TP">%s\n", "Clean<br>Private");
   fprintf(file, "<th"TP">%s\n", "Clean<br>Shared");
-  fprintf(file, "<th"TP">%s %s\n", "Pss", HTML_DOWN_ARROW);
+  fprintf(file, "<th"TP">%s\n", "Pss");
   fprintf(file, "<th"TP">%s\n", "Swap");
   fprintf(file, "<th"TP">%s\n", "Anonymous");
   fprintf(file, "<th"TP">%s\n", "Locked");
