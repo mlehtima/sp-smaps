@@ -2907,7 +2907,7 @@ analyze_emit_lib_html(analyze_t *self, smapssnap_t *snap, const char *work)
 
     fprintf(file, "<h1>%s XREF</h1>\n", emit_type_titles[EMIT_TYPE_APPLICATION]);
     /* Sort initially by 9th column (PSS) in descending order */
-    fprintf(file, "<table border=1 class=\"tablesorter { sortlist: [[9,1]] }\">\n");
+    fprintf(file, "<table border=1 class=\"tablesorter { sortlist: [[9,0]] }\">\n");
     analyze_emit_xref_header(self, file, EMIT_TYPE_APPLICATION);
     fprintf(file, "<tbody>\n");
 
@@ -3047,7 +3047,7 @@ analyze_emit_app_html(analyze_t *self, smapssnap_t *snap, const char *work)
 
     fprintf(file, "<h1>%s XREF</h1>\n", "Mapping");
     /* Sort initially by 9th column (PSS) in descending order */
-    fprintf(file, "<table border=1 class=\"tablesorter { sortlist: [[9,1]] }\">\n");
+    fprintf(file, "<table border=1 class=\"tablesorter { sortlist: [[9,0]] }\">\n");
     analyze_emit_xref_header(self, file, EMIT_TYPE_OBJECT);
     fprintf(file, "<tbody>\n");
 
@@ -3319,7 +3319,7 @@ analyze_emit_table(analyze_t *self, FILE *file, const char *work, enum emit_type
     qsort(lut, items, sizeof *lut, analyze_emit_application_table_cmp);
 
   /* Sort initially by 7th column (PSS) in descending order */
-  fprintf(file, "<table border=1 class=\"tablesorter { sortlist: [[7,1]] }\">\n");
+  fprintf(file, "<table border=1 class=\"tablesorter { sortlist: [[7,0]] }\">\n");
   analyze_emit_table_header(self, file, type);
   fprintf(file, "<tbody>\n");
   for( int i = 0; i < items; ++i )
