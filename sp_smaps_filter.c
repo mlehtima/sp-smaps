@@ -2755,6 +2755,7 @@ analyze_emit_page_table(analyze_t *self, FILE *file, const meminfo_t *mtab)
 static void
 analyze_emit_xref_header(const analyze_t *self, FILE *file, enum emit_type type)
 {
+  fprintf(file, "<thead>\n");
   fprintf(file, "<tr>\n");
   fprintf(file, "<th"TP">%s\n", emit_type_titles[type]);
   fprintf(file, "<th"TP">%s\n", "Type");
@@ -2900,6 +2901,7 @@ analyze_emit_lib_html(analyze_t *self, smapssnap_t *snap, const char *work)
     fprintf(file, "<table border=1>\n");
 
     analyze_emit_xref_header(self, file, EMIT_TYPE_APPLICATION);
+    fprintf(file, "<tbody>\n");
 
     int alo,ahi, blo,bhi;
 
@@ -3052,6 +3054,7 @@ analyze_emit_app_html(analyze_t *self, smapssnap_t *snap, const char *work)
     fprintf(file, "<table border=1>\n");
 
     analyze_emit_xref_header(self, file, EMIT_TYPE_OBJECT);
+    fprintf(file, "<tbody>\n");
 
     int alo,ahi, blo,bhi;
 
