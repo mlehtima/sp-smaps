@@ -3194,12 +3194,17 @@ analyze_emit_table_header(const analyze_t *self, FILE *file, enum emit_type type
   if( type == EMIT_TYPE_APPLICATION )
   {
     fprintf(file, "<th"TP" colspan=%d>%s\n", self->ntypes-1, "RSS / Class");
+    fprintf(file, "<th"TP" colspan=%d>%s\n", self->ntypes-1, "Size / Class");
   }
   fprintf(file, "<tr>\n");
   fprintf(file, "<th"TP" colspan=2>%s\n", "Dirty");
   fprintf(file, "<th"TP" colspan=2>%s\n", "Clean");
   if( type == EMIT_TYPE_APPLICATION )
   {
+    for( int i = 1; i < self->ntypes; ++i )
+    {
+      fprintf(file, "<th"TP" rowspan=2>%s\n", self->stype[i]);
+    }
     for( int i = 1; i < self->ntypes; ++i )
     {
       fprintf(file, "<th"TP" rowspan=2>%s\n", self->stype[i]);
@@ -3390,6 +3395,11 @@ analyze_emit_table(analyze_t *self, FILE *file, const char *work, enum emit_type
       {
 	meminfo_t *s = analyze_mem(self, a, t, type);
 	fprintf(file, "<td %s align=right>%s\n", bg, uval(meminfo_total(s)));
+      }
+      for( int t = 1; t < self->ntypes; ++t )
+      {
+	meminfo_t *s = analyze_mem(self, a, t, type);
+	fprintf(file, "<td %s align=right>%s\n", bg, uval(s->Size));
       }
     }
   }
