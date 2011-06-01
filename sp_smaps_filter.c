@@ -972,6 +972,11 @@ meminfo_parse(meminfo_t *self, char *line)
   {
     self->Locked = strtoul(val, 0, 10);
   }
+  else if( !strcmp(key, "KernelPageSize")
+        || !strcmp(key, "MMUPageSize")
+      )
+  {
+  }
   else
   {
     static unknown_t unkn = UNKNOWN_INIT;
