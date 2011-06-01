@@ -3479,41 +3479,37 @@ out:
 }
 
 static int
+copy_to_workdir(const char *workdir, const char *fn)
+{
+  char src[512];
+  char dst[512];
+  snprintf(src, sizeof(src), "/usr/share/sp-smaps-visualize/%s", fn);
+  src[sizeof(src)-1] = 0;
+  snprintf(dst, sizeof(dst), "%s/%s", workdir, fn);
+  dst[sizeof(dst)-1] = 0;
+  return file_copy(src, dst);
+}
+
+static const char *const html_resources[] =
+{
+  "jquery.metadata.js",
+  "jquery.min.js",
+  "jquery.tablesorter.js",
+  "tablesorter.css",
+  "expander.js",
+};
+
+static int
 create_javascript_files(const char *workdir)
 {
+  size_t i;
   int ret;
-  char dst[512];
-
-  snprintf(dst, sizeof(dst), "%s/jquery.metadata.js", workdir);
-  dst[sizeof(dst)-1] = 0;
-  ret = file_copy("/usr/share/sp-smaps-visualize/jquery.metadata.js", dst);
-  if (ret < 0)
-    goto out;
-
-  snprintf(dst, sizeof(dst), "%s/jquery.min.js", workdir);
-  dst[sizeof(dst)-1] = 0;
-  ret = file_copy("/usr/share/sp-smaps-visualize/jquery.min.js", dst);
-  if (ret < 0)
-    goto out;
-
-  snprintf(dst, sizeof(dst), "%s/jquery.tablesorter.js", workdir);
-  dst[sizeof(dst)-1] = 0;
-  ret = file_copy("/usr/share/sp-smaps-visualize/jquery.tablesorter.js", dst);
-  if (ret < 0)
-    goto out;
-
-  snprintf(dst, sizeof(dst), "%s/tablesorter.css", workdir);
-  dst[sizeof(dst)-1] = 0;
-  ret = file_copy("/usr/share/sp-smaps-visualize/tablesorter.css", dst);
-  if (ret < 0)
-    goto out;
-
-  snprintf(dst, sizeof(dst), "%s/expander.js", workdir);
-  dst[sizeof(dst)-1] = 0;
-  ret = file_copy("/usr/share/sp-smaps-visualize/expander.js", dst);
-  if (ret < 0)
-    goto out;
-
+  for (i=0; i < sizeof(html_resources)/sizeof(*html_resources); ++i)
+  {
+    ret = copy_to_workdir(workdir, html_resources[i]);
+    if (ret < 0)
+      goto out;
+  }
 out:
   return ret;
 }
