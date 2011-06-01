@@ -271,6 +271,23 @@ static const option_t app_opt[] =
 
 #include <argz.h>
 
+static const char *abbr_title(const char *title)
+{
+  static char buf[512];
+  size_t tlen = strlen(title);
+  if( tlen < TITLE_MAX_LEN )
+  {
+    return title;
+  }
+  else
+  {
+    snprintf(buf, sizeof(buf), "<abbr title=\"%s\">%s%s</abbr>",
+        title, HTML_ELLIPSIS, &title[tlen-TITLE_MAX_LEN]);
+    buf[sizeof(buf)-1] = '\0';
+    return buf;
+  }
+}
+
 typedef struct unknown_t unknown_t;
 
 /* ------------------------------------------------------------------------- *
@@ -2933,7 +2950,7 @@ analyze_emit_lib_html(analyze_t *self, smapssnap_t *snap, const char *work)
                 "<tr>\n"
                 "<th"LT"align=left>"
                 "<a href=\"app%03d.html\">%s</a>\n",
-                a, path_basename(self->sappl[a]));
+                a, abbr_title(path_basename(self->sappl[a])));
 
         fprintf(file, "<td align=left>%s\n", m->smapsmapp_map.type);
         fprintf(file, "<td align=left style='font-family: monospace;'>%s\n", m->smapsmapp_map.prot);
@@ -3073,7 +3090,7 @@ analyze_emit_app_html(analyze_t *self, smapssnap_t *snap, const char *work)
                 "<tr>\n"
                 "<th"LT"align=left>"
                 "<a href=\"lib%03d.html\">%s</a>\n",
-                l, path_basename(self->spath[l]));
+                l, abbr_title(path_basename(self->spath[l])));
 
         fprintf(file, "<td align=left>%s\n", m->smapsmapp_map.type);
         fprintf(file, "<td align=left style='font-family: monospace;'>%s\n", m->smapsmapp_map.prot);
@@ -3351,33 +3368,20 @@ analyze_emit_table(analyze_t *self, FILE *file, const char *work, enum emit_type
 
     if( type == EMIT_TYPE_LIBRARY )
     {
-      fprintf(file, "<a href=\"%s/lib%03d.html\">", work, a);
       title = path_basename(self->spath[a]);
+      fprintf(file, "<a href=\"%s/lib%03d.html\">%s</a>\n",
+          work, a, abbr_title(title));
     }
     else if( type == EMIT_TYPE_APPLICATION )
     {
-      fprintf(file, "<a href=\"%s/app%03d.html\">", work, a);
       title = self->sappl[a];
+      fprintf(file, "<a href=\"%s/app%03d.html\">%s</a>\n",
+          work, a, abbr_title(title));
     }
     else
     {
       abort();
     }
-    if( strlen(title) < TITLE_MAX_LEN )
-    {
-      fprintf(file, "%s", title);
-    }
-    else
-    {
-      fprintf(file, "<abbr title=\"%s\">", title);
-      fprintf(file, HTML_ELLIPSIS);
-      for( size_t j = strlen(title)-TITLE_MAX_LEN; j < strlen(title); ++j )
-      {
-	fprintf(file, "%c", title[j]);
-      }
-      fprintf(file, "</abbr>");
-    }
-    fprintf(file, "</a>\n");
 
     fprintf(file, "<td %s align=right>%s\n", bg, uval(s->Private_Dirty));
     fprintf(file, "<td %s align=right>%s\n", bg, uval(s->Shared_Dirty));
