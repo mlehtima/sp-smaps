@@ -2718,7 +2718,17 @@ analyze_html_header(FILE *file, const char *title, const char *work)
   fprintf(file, "<html>\n");
   fprintf(file, "<head>\n");
   fprintf(file, "<title>%s</title>\n", title);
-  fprintf(file, "<link rel=\"stylesheet\" type=\"text/css\" href=\"%s/tablesorter.css\" />", work);
+  fprintf(file, "<link rel=\"stylesheet\" type=\"text/css\" href=\"%s/tablesorter.css\" />\n", work);
+  fprintf(file, "<style type='text/css'>\n");
+  fprintf(file, "  table.tablesorter thead tr .header"
+                "  { background-image: url(%s/bg.gif);"
+                "    background-repeat: no-repeat;"
+                "    background-position: center right; }\n", work);
+  fprintf(file, "  table.tablesorter thead tr .headerSortUp"
+                "  { background-image: url(%s/asc.gif); }\n", work);
+  fprintf(file, "  table.tablesorter thead tr .headerSortDown"
+                "  { background-image: url(%s/desc.gif); }\n", work);
+  fprintf(file, "</style>\n");
   fprintf(file, "</head>\n");
   fprintf(file, "<body>\n");
   fprintf(file, "<script src=\"%s/jquery.min.js\"></script>\n", work);
@@ -3497,6 +3507,9 @@ static const char *const html_resources[] =
   "jquery.tablesorter.js",
   "tablesorter.css",
   "expander.js",
+  "asc.gif",
+  "desc.gif",
+  "bg.gif",
 };
 
 static int

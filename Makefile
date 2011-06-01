@@ -233,6 +233,9 @@ install-visualize-data::
 	install -m644 data/jquery.tablesorter.js       $(ROOT)$(DATA)/jquery.tablesorter.js
 	install -m644 data/tablesorter.css             $(ROOT)$(DATA)/tablesorter.css
 	install -m644 data/expander.js                 $(ROOT)$(DATA)/expander.js
+	install -m644 data/asc.gif                     $(ROOT)$(DATA)/asc.gif
+	install -m644 data/desc.gif                    $(ROOT)$(DATA)/desc.gif
+	install -m644 data/bg.gif                      $(ROOT)$(DATA)/bg.gif
 
 # -----------------------------------------------------------------------------
 # Target specific Rules
