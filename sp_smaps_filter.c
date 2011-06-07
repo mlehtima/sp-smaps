@@ -855,7 +855,6 @@ void       analyze_delete                (analyze_t *self);
 void       analyze_delete_cb             (void *self);
 void       analyze_enumerate_data        (analyze_t *self, smapssnap_t *snap);
 void       analyze_accumulate_data       (analyze_t *self);
-void       analyze_emit_page_table       (analyze_t *self, FILE *file, const meminfo_t *mtab);
 void       analyze_get_apprange          (analyze_t *self, int lo, int hi, int *plo, int *phi, int aid);
 void       analyze_get_librange          (analyze_t *self, int lo, int hi, int *plo, int *phi, int lid);
 int        analyze_emit_lib_html         (analyze_t *self, smapssnap_t *snap, const char *work);
@@ -2754,8 +2753,8 @@ static const char *const emit_type_titles[] = {
  * analyze_emit_page_table
  * ------------------------------------------------------------------------- */
 
-void
-analyze_emit_page_table(analyze_t *self, FILE *file, const meminfo_t *mtab)
+static void
+analyze_emit_page_table(analyze_t *self, FILE *file, const meminfo_t *mtab, const pidinfo_t *pidinfo)
 {
   fprintf(file, "<table border=1>\n");
   fprintf(file, "<tr>\n");
@@ -2763,7 +2762,17 @@ analyze_emit_page_table(analyze_t *self, FILE *file, const meminfo_t *mtab)
   fprintf(file, "<th"TP"colspan=2>%s\n", "Dirty");
   fprintf(file, "<th"TP"colspan=2>%s\n", "Clean");
   fprintf(file, "<th"TP"rowspan=2>%s\n", "Resident");
+  if (pidinfo)
+  {
+    fprintf(file, "<th"TP"rowspan=2>%s\n",
+        "<abbr title='VmHWM field of /proc/pid/status'>Resident Peak</abbr>");
+  }
   fprintf(file, "<th"TP"rowspan=2>%s\n", "Size");
+  if (pidinfo)
+  {
+    fprintf(file, "<th"TP"rowspan=2>%s\n",
+        "<abbr title='VmPeak field of /proc/pid/status'>Size Peak</abbr>");
+  }
   fprintf(file, "<th"TP"rowspan=2>%s\n", "Pss");
   fprintf(file, "<th"TP"rowspan=2>%s\n", "Swap");
   fprintf(file, "<th"TP"rowspan=2>%s\n", "Referenced");
@@ -2788,7 +2797,17 @@ analyze_emit_page_table(analyze_t *self, FILE *file, const meminfo_t *mtab)
     fprintf(file, "<td %s align=right>%s\n", bg, uval(m->Private_Clean));
     fprintf(file, "<td %s align=right>%s\n", bg, uval(m->Shared_Clean));
     fprintf(file, "<td %s align=right>%s\n", bg, uval(m->Rss));
+    if (pidinfo)
+    {
+      fprintf(file, "<td %s align=right>%s\n", bg,
+          uval(t==0 ? pidinfo->VmHWM : 0));
+    }
     fprintf(file, "<td %s align=right>%s\n", bg, uval(m->Size));
+    if (pidinfo)
+    {
+      fprintf(file, "<td %s align=right>%s\n", bg,
+          uval(t==0 ? pidinfo->VmPeak : 0));
+    }
     fprintf(file, "<td %s align=right>%s\n", bg, uval(m->Pss));
     fprintf(file, "<td %s align=right>%s\n", bg, uval(m->Swap));
     fprintf(file, "<td %s align=right>%s\n", bg, uval(m->Referenced));
@@ -2933,7 +2952,7 @@ analyze_emit_lib_html(analyze_t *self, smapssnap_t *snap, const char *work)
      * - - - - - - - - - - - - - - - - - - - */
 
     fprintf(file, "<h1>%s: %s</h1>\n", emit_type_titles[EMIT_TYPE_LIBRARY], self->spath[l]);
-    analyze_emit_page_table(self, file, analyze_lib_mem(self, l, 0));
+    analyze_emit_page_table(self, file, analyze_lib_mem(self, l, 0), NULL);
 
     /* - - - - - - - - - - - - - - - - - - - *
      * application xref
@@ -3008,6 +3027,25 @@ analyze_emit_lib_html(analyze_t *self, smapssnap_t *snap, const char *work)
  * analyze_emit_app_html
  * ------------------------------------------------------------------------- */
 
+static const pidinfo_t *
+pidinfo_from_smapssnap(const smapssnap_t *snap, const char *sappl)
+{
+  char temp[512];
+  size_t i;
+  for (i=0; i < array_size(&snap->smapssnap_proclist); ++i)
+  {
+    smapsproc_t *proc = array_get(&snap->smapssnap_proclist, i);
+    if (!proc)
+      continue;
+    snprintf(temp, sizeof temp, "%s (%d)",
+             proc->smapsproc_pid.Name,
+             proc->smapsproc_pid.Pid);
+    if (strcmp(temp, sappl) == 0)
+      return &proc->smapsproc_pid;
+  }
+  return NULL;
+}
+
 static int
 local_app_lib_compare(const void *a1, const void *a2)
 {
@@ -3073,7 +3111,8 @@ analyze_emit_app_html(analyze_t *self, smapssnap_t *snap, const char *work)
      * - - - - - - - - - - - - - - - - - - - */
 
     fprintf(file, "<h1>%s: %s</h1>\n", emit_type_titles[EMIT_TYPE_APPLICATION], self->sappl[a]);
-    analyze_emit_page_table(self, file, analyze_app_mem(self, a, 0));
+    analyze_emit_page_table(self, file, analyze_app_mem(self, a, 0),
+        pidinfo_from_smapssnap(snap, self->sappl[a]));
 
     /* - - - - - - - - - - - - - - - - - - - *
      * library xref
