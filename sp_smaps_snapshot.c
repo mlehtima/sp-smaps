@@ -78,8 +78,6 @@
 #define TOOL_NAME "sp_smaps_snapshot"
 #include "release.h"
 
-#define PIDFILE "smaps"
-
 /* ------------------------------------------------------------------------- *
  * Runtime Manual
  * ------------------------------------------------------------------------- */
@@ -115,12 +113,8 @@ static const manual_t app_man[]=
   MAN_ADD("EXAMPLES",
           "% "TOOL_NAME" > after_boot.cap\n"
           "\n"
-          "  Writes output fairly similar to 'head -2000 /proc/[1-9]*/smaps' to\n"
-          "  logfile 'after_boot.cap'. (but with some additional data per process)\n"
-          "\n"
-          "% "TOOL_NAME" -fstatus -ostatus.log\n"
-          "\n"
-          "  Writes content of all proc/pid/status files to logfile status.log\n"
+          "  Collects /proc/*/smaps files from all running processes, and writes the\n"
+          "  result to 'after_boot.cap'.\n"
           )
   MAN_ADD("COPYRIGHT",
           "Copyright (C) 2004-2007 Nokia Corporation.\n\n"
@@ -149,7 +143,6 @@ enum
   opt_quiet,
   opt_silent,
 
-  opt_input,
   opt_output,
   opt_realtime,
 };
@@ -184,10 +177,6 @@ static const option_t app_opt[] =
    * application options
    * - - - - - - - - - - - - - - - - - - - */
 
-  OPT_ADD(opt_input,
-          "f", "input", "<source path>",
-          "Input file to use from /proc/pid/ instead of "PIDFILE".\n" ),
-
   OPT_ADD(opt_output,
           "o", "output", "<destination path>",
           "Output file to use instead of stdout.\n" ),
@@ -211,7 +200,6 @@ static const option_t app_opt[] =
                          * done in this sized blocks -> make it multiple of
                          * file system block size. */
 
-static const char *pidfile = PIDFILE;
 static const char *outfile = 0;
 
 /* ========================================================================= *
@@ -737,7 +725,7 @@ static int snapshot_all(void)
         output_raw("\n",1);
       }
 
-      snprintf(path, sizeof path, "%s/%s/%s", root, de->d_name,pidfile);
+      snprintf(path, sizeof path, "%s/%s/smaps", root, de->d_name);
       output_fmt("==> %s <==\n", path);
 
       /* Avoid feeding basename cases that might confuse it, such as
@@ -846,10 +834,6 @@ int main(int ac, char **av)
       break;
     case opt_silent:
       msg_setsilent();
-      break;
-
-    case opt_input:
-      pidfile = par;
       break;
 
     case opt_output:
