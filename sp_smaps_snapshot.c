@@ -400,8 +400,9 @@ static void output_fmt(const char *fmt, ...)
  * output_file  --  queue file contents to output
  * ------------------------------------------------------------------------- */
 
-static void output_file(const char *path)
+static size_t output_file(const char *path)
 {
+  size_t cnt = 0;
   char temp[RXBUFF];
   int file = open(path,O_RDONLY);
 
@@ -435,11 +436,13 @@ static void output_file(const char *path)
     }
 
     output_raw(temp, rc);
+    cnt += rc;
   }
 
   cleanup:
 
   if( file != -1 ) close(file);
+  return cnt;
 }
 
 /* ------------------------------------------------------------------------- *
