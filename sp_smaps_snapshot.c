@@ -1,7 +1,7 @@
 /*
  * This file is part of sp-smaps
  *
- * Copyright (C) 2004-2007 Nokia Corporation.
+ * Copyright (C) 2004-2007,2009,2011 Nokia Corporation.
  *
  * Contact: Eero Tamminen <eero.tamminen@nokia.com>
  *
