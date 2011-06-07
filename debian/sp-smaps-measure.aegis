@@ -1,0 +1,8 @@
+<!-- sp_smaps_snapshot needs ptrace capabilities for collecting /proc/*/smaps
+data for all running processes. Incomplete snapshot is of limited use. -->
+<aegis>
+	<request>
+		<credential name="CAP::sys_ptrace" />
+		<for path="/usr/bin/sp_smaps_snapshot" />
+	</request>
+</aegis>
