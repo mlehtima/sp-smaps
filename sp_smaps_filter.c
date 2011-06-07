@@ -54,6 +54,7 @@
 #include <ctype.h>
 #include <assert.h>
 #include <math.h>
+#include <errno.h>
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -79,9 +80,8 @@
 #define TOOL_NAME "sp_smaps_filter"
 #include "release.h"
 
-#define HTML_DOWN_ARROW "&#x25BE;"
 #define HTML_ELLIPSIS   "&#0133;"
-#define JQUERY_URL "http://code.jquery.com/jquery-1.5.min.js"
+#define TITLE_MAX_LEN   60
 
 /* ------------------------------------------------------------------------- *
  * Runtime Manual
@@ -270,6 +270,23 @@ static const option_t app_opt[] =
 };
 
 #include <argz.h>
+
+static const char *abbr_title(const char *title)
+{
+  static char buf[512];
+  size_t tlen = strlen(title);
+  if( tlen < TITLE_MAX_LEN )
+  {
+    return title;
+  }
+  else
+  {
+    snprintf(buf, sizeof(buf), "<abbr title=\"%s\">%s%s</abbr>",
+        title, HTML_ELLIPSIS, &title[tlen-TITLE_MAX_LEN]);
+    buf[sizeof(buf)-1] = '\0';
+    return buf;
+  }
+}
 
 typedef struct unknown_t unknown_t;
 
@@ -627,6 +644,8 @@ struct meminfo_t
   unsigned Pss;
   unsigned Swap;
   unsigned Referenced;
+  unsigned Anonymous;
+  unsigned Locked;
 };
 
 void       meminfo_ctor              (meminfo_t *self);
@@ -650,13 +669,6 @@ meminfo_total(const meminfo_t *self)
           self->Shared_Dirty  +
           self->Private_Clean +
           self->Private_Dirty);
-}
-
-INLINE unsigned
-meminfo_cowest(const meminfo_t *self)
-{
-   // TODO: COW estimate, is this what is wanted?
-  return (self->Shared_Clean + self->Shared_Dirty);
 }
 
 /* ------------------------------------------------------------------------- *
@@ -692,8 +704,10 @@ struct pidinfo_t
   int      Pid;
   int      PPid;
   int      Threads;
+  unsigned VmPeak;
   unsigned VmSize;
   unsigned VmLck;
+  unsigned VmHWM;
   unsigned VmRSS;
   unsigned VmData;
   unsigned VmStk;
@@ -841,13 +855,12 @@ void       analyze_delete                (analyze_t *self);
 void       analyze_delete_cb             (void *self);
 void       analyze_enumerate_data        (analyze_t *self, smapssnap_t *snap);
 void       analyze_accumulate_data       (analyze_t *self);
-void       analyze_emit_page_table       (analyze_t *self, FILE *file, const meminfo_t *mtab);
 void       analyze_get_apprange          (analyze_t *self, int lo, int hi, int *plo, int *phi, int aid);
 void       analyze_get_librange          (analyze_t *self, int lo, int hi, int *plo, int *phi, int lid);
 int        analyze_emit_lib_html         (analyze_t *self, smapssnap_t *snap, const char *work);
 int        analyze_emit_app_html         (analyze_t *self, smapssnap_t *snap, const char *work);
 void       analyze_emit_smaps_table      (analyze_t *self, FILE *file, meminfo_t *v);
-void       analyze_emit_process_hierarchy(analyze_t *self, FILE *file, smapsproc_t *proc, const char *work);
+void       analyze_emit_process_hierarchy(analyze_t *self, FILE *file, smapsproc_t *proc, const char *work, int recursion_depth);
 int        analyze_emit_main_page        (analyze_t *self, smapssnap_t *snap, const char *path);
 
 /* ------------------------------------------------------------------------- *
@@ -892,15 +905,7 @@ void         smapsfilt_delete_cb(void *self);
 void
 meminfo_ctor(meminfo_t *self)
 {
-  self->Size = 0;
-  self->Rss  = 0;
-  self->Shared_Clean  = 0;
-  self->Shared_Dirty  = 0;
-  self->Private_Clean = 0;
-  self->Private_Dirty = 0;
-  self->Pss = 0;
-  self->Swap = 0;
-  self->Referenced = 0;
+  memset(self, 0, sizeof(*self));
 }
 
 /* ------------------------------------------------------------------------- *
@@ -958,6 +963,19 @@ meminfo_parse(meminfo_t *self, char *line)
   {
     self->Referenced   = strtoul(val, 0, 10);
   }
+  else if( !strcmp(key, "Anonymous") )
+  {
+    self->Anonymous = strtoul(val, 0, 10);
+  }
+  else if( !strcmp(key, "Locked") )
+  {
+    self->Locked = strtoul(val, 0, 10);
+  }
+  else if( !strcmp(key, "KernelPageSize")
+        || !strcmp(key, "MMUPageSize")
+      )
+  {
+  }
   else
   {
     static unknown_t unkn = UNKNOWN_INIT;
@@ -966,6 +984,23 @@ meminfo_parse(meminfo_t *self, char *line)
       fprintf(stderr, "%s: Unknown key: '%s' = '%s'\n", __FUNCTION__, key, val);
     }
   }
+}
+
+static int
+meminfo_all_zeroes(const meminfo_t *self)
+{
+  return self->Size == 0
+    && self->Rss == 0
+    && self->Shared_Clean == 0
+    && self->Shared_Dirty == 0
+    && self->Private_Clean == 0
+    && self->Private_Dirty == 0
+    && self->Pss == 0
+    && self->Swap == 0
+    && self->Referenced == 0
+    && self->Anonymous == 0
+    && self->Locked == 0
+    ;
 }
 
 /* ------------------------------------------------------------------------- *
@@ -984,6 +1019,8 @@ meminfo_accumulate_appdata(meminfo_t *self, const meminfo_t *that)
   pusum(&self->Pss,           that->Pss);
   pusum(&self->Swap,          that->Swap);
   pusum(&self->Referenced,    that->Referenced);
+  pusum(&self->Anonymous,     that->Anonymous);
+  pusum(&self->Locked,        that->Locked);
 }
 
 /* ------------------------------------------------------------------------- *
@@ -1002,6 +1039,8 @@ meminfo_accumulate_libdata(meminfo_t *self, const meminfo_t *that)
   pusum(&self->Pss,           that->Pss);
   pumax(&self->Swap,          that->Swap);
   pumax(&self->Referenced,    that->Referenced);
+  pusum(&self->Anonymous,     that->Anonymous);
+  pusum(&self->Locked,        that->Locked);
 }
 
 /* ------------------------------------------------------------------------- *
@@ -1020,6 +1059,8 @@ meminfo_accumulate_maxdata(meminfo_t *self, const meminfo_t *that)
   pumax(&self->Pss,           that->Pss);
   pumax(&self->Swap,          that->Swap);
   pumax(&self->Referenced,    that->Referenced);
+  pumax(&self->Anonymous,     that->Anonymous);
+  pumax(&self->Locked,        that->Locked);
 }
 
 /* ------------------------------------------------------------------------- *
@@ -1139,17 +1180,8 @@ mapinfo_delete_cb(void *self)
 void
 pidinfo_ctor(pidinfo_t *self)
 {
-  self->Name    = strdup("<noname>");
-  self->PPid    = 0;
-  self->Threads = 0;
-  self->VmSize  = 0;
-  self->VmLck   = 0;
-  self->VmRSS   = 0;
-  self->VmData  = 0;
-  self->VmStk   = 0;
-  self->VmExe   = 0;
-  self->VmLib   = 0;
-  self->VmPTE   = 0;
+  memset(self, 0, sizeof(*self));
+  self->Name = strdup("<noname>");
 }
 
 /* ------------------------------------------------------------------------- *
@@ -1189,6 +1221,10 @@ pidinfo_parse(pidinfo_t *self, char *line)
   {
     self->Threads       = strtol(val, 0, 10);
   }
+  else if( !strcmp(key, "VmPeak") )
+  {
+    self->VmPeak        = strtoul(val, 0, 10);
+  }
   else if( !strcmp(key, "VmSize") )
   {
     self->VmSize        = strtoul(val, 0, 10);
@@ -1196,6 +1232,10 @@ pidinfo_parse(pidinfo_t *self, char *line)
   else if( !strcmp(key, "VmLck") )
   {
     self->VmLck = strtoul(val, 0, 10);
+  }
+  else if( !strcmp(key, "VmHWM") )
+  {
+    self->VmHWM = strtoul(val, 0, 10);
   }
   else if( !strcmp(key, "VmRSS") )
   {
@@ -1220,6 +1260,28 @@ pidinfo_parse(pidinfo_t *self, char *line)
   else if( !strcmp(key, "VmPTE") )
   {
     self->VmPTE = strtoul(val, 0, 10);
+  }
+  else if( !strcmp(key, "State")
+        || !strcmp(key, "Tgid")
+        || !strcmp(key, "TracerPid")
+        || !strcmp(key, "Uid")
+        || !strcmp(key, "Gid")
+        || !strcmp(key, "FDSize")
+        || !strcmp(key, "Groups")
+        || !strcmp(key, "SigQ")
+        || !strcmp(key, "SigPnd")
+        || !strcmp(key, "ShdPnd")
+        || !strcmp(key, "SigBlk")
+        || !strcmp(key, "SigCgt")
+        || !strcmp(key, "SigIgn")
+        || !strcmp(key, "CapInh")
+        || !strcmp(key, "CapPrm")
+        || !strcmp(key, "CapEff")
+        || !strcmp(key, "CapBnd")
+        || !strcmp(key, "voluntary_ctxt_switches")
+        || !strcmp(key, "nonvoluntary_ctxt_switches")
+      )
+  {
   }
   else
   {
@@ -1385,8 +1447,10 @@ smapsproc_are_same(smapsproc_t *self, smapsproc_t *that)
 
 #if 01
 # define cp(v) if( self->smapsproc_pid.v != that->smapsproc_pid.v ) return 0;
+  cp(VmPeak)
   cp(VmSize)
   cp(VmLck)
+  cp(VmHWM)
   cp(VmRSS)
   cp(VmData)
   cp(VmStk)
@@ -1886,11 +1950,22 @@ smapssnap_save_cap(smapssnap_t *self, const char *path)
     Pi(PPid);
     Pi(Threads);
 
-    if( pi->VmSize || pi->VmLck || pi->VmRSS || pi->VmData ||
-        pi->VmStk  || pi->VmExe || pi->VmLib  || pi->VmPTE )
+    if( pi->VmPeak
+     || pi->VmSize
+     || pi->VmLck
+     || pi->VmHWM
+     || pi->VmRSS
+     || pi->VmData
+     || pi->VmStk
+     || pi->VmExe
+     || pi->VmLib
+     || pi->VmPTE
+     )
     {
+      Pu(VmPeak);
       Pu(VmSize);
       Pu(VmLck);
+      Pu(VmHWM);
       Pu(VmRSS);
       Pu(VmData);
       Pu(VmStk);
@@ -1924,6 +1999,8 @@ smapssnap_save_cap(smapssnap_t *self, const char *path)
       Pu(Pss);
       Pu(Swap);
       Pu(Referenced);
+      Pu(Anonymous);
+      Pu(Locked);
 
 #undef Pu
     }
@@ -1978,8 +2055,8 @@ smapssnap_save_csv(smapssnap_t *self, const char *path)
           "name,pid,ppid,threads,"
           "head,tail,prot,offs,node,flag,path,"
           "size,rss,shacln,shadty,pricln,pridty,"
-          "pss,swap,referenced,"
-          "pri,sha,cln,cow\n");
+          "pss,swap,referenced,anonymous,locked,"
+          "pri,sha,cln\n");
 
   /* - - - - - - - - - - - - - - - - - - - *
    * output csv table
@@ -2007,7 +2084,7 @@ smapssnap_save_csv(smapssnap_t *self, const char *path)
               map->offs, map->node, map->flgs,
               map->path);
 
-      fprintf(file, "%u,%u,%u,%u,%u,%u,%u,%u,%u,",
+      fprintf(file, "%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u",
               mem->Size,
               mem->Rss,
               mem->Shared_Clean,
@@ -2016,13 +2093,14 @@ smapssnap_save_csv(smapssnap_t *self, const char *path)
               mem->Private_Dirty,
               mem->Pss,
               mem->Swap,
-              mem->Referenced);
+              mem->Referenced,
+              mem->Anonymous,
+              mem->Locked);
 
-      fprintf(file, "%u,%u,%u,%u\n",
+      fprintf(file, "%u,%u,%u\n",
               mem->Private_Dirty,
               mem->Shared_Dirty,
-              mem->Private_Clean + mem->Shared_Clean,
-              0u);
+              mem->Private_Clean + mem->Shared_Clean);
     }
   }
 
@@ -2633,6 +2711,33 @@ analyze_accumulate_data(analyze_t *self)
   }
 }
 
+static void
+analyze_html_header(FILE *file, const char *title, const char *work)
+{
+  fprintf(file, "<html>\n");
+  fprintf(file, "<head>\n");
+  fprintf(file, "<title>%s</title>\n", title);
+  fprintf(file, "<link rel=\"stylesheet\" type=\"text/css\" href=\"%s/tablesorter.css\" />\n", work);
+  fprintf(file, "<style type='text/css'>\n");
+  fprintf(file, "  table.tablesorter thead tr .header"
+                "  { background-image: url(%s/bg.gif);"
+                "    background-repeat: no-repeat;"
+                "    background-position: center right; }\n", work);
+  fprintf(file, "  table.tablesorter thead tr .headerSortUp"
+                "  { background-image: url(%s/asc.gif); }\n", work);
+  fprintf(file, "  table.tablesorter thead tr .headerSortDown"
+                "  { background-image: url(%s/desc.gif); }\n", work);
+  fprintf(file, "</style>\n");
+  fprintf(file, "</head>\n");
+  fprintf(file, "<body>\n");
+  fprintf(file, "<script src=\"%s/jquery.min.js\"></script>\n", work);
+  fprintf(file, "<script src=\"%s/jquery.metadata.js\"></script>\n", work);
+  fprintf(file, "<script src=\"%s/jquery.tablesorter.js\"></script>\n", work);
+  fprintf(file, "<script src=\"%s/expander.js\"></script>\n", work);
+  fprintf(file, "<script>$(document).ready(function() "
+                "{ $(\".tablesorter\").tablesorter(); } );</script>\n");
+}
+
 #define TP " bgcolor=\"#ffffbf\" "
 #define LT " bgcolor=\"#bfffff\" "
 #define D1 " bgcolor=\"#f4f4f4\" "
@@ -2644,333 +2749,12 @@ static const char *const emit_type_titles[] = {
   [EMIT_TYPE_OBJECT]          = "Object",
 };
 
-static const char jquery_metadata_js[] =
-  "/*\n"
-  " * Metadata - jQuery plugin for parsing metadata from elements\n"
-  " *\n"
-  " * Copyright (c) 2006 John Resig, Yehuda Katz, Jörn Zaefferer, Paul McLanahan\n"
-  " *\n"
-  " * Dual licensed under the MIT and GPL licenses:\n"
-  " *   http://www.opensource.org/licenses/mit-license.php\n"
-  " *   http://www.gnu.org/licenses/gpl.html\n"
-  " *\n"
-  " * Revision: $Id: jquery.metadata.js 3640 2007-10-11 18:34:38Z pmclanahan $\n"
-  " *\n"
-  " */\n"
-  "(function($) {\n"
-  "$.extend({\n"
-  "  metadata : {\n"
-  "    defaults : {\n"
-  "      type: 'class',\n"
-  "      name: 'metadata',\n"
-  "      cre: /({.*})/,\n"
-  "      single: 'metadata'\n"
-  "    },\n"
-  "    setType: function( type, name ){\n"
-  "      this.defaults.type = type;\n"
-  "      this.defaults.name = name;\n"
-  "    },\n"
-  "    get: function( elem, opts ){\n"
-  "      var settings = $.extend({},this.defaults,opts);\n"
-  "      // check for empty string in single property\n"
-  "      if ( !settings.single.length ) settings.single = 'metadata';\n"
-  "      var data = $.data(elem, settings.single);\n"
-  "      // returned cached data if it already exists\n"
-  "      if ( data ) return data;\n"
-  "      data = \"{}\";\n"
-  "      var getData = function(data) {\n"
-  "        if(typeof data != \"string\") return data;\n"
-  "        \n"
-  "        if( data.indexOf('{') < 0 ) {\n"
-  "          data = eval(\"(\" + data + \")\");\n"
-  "        }\n"
-  "      }\n"
-  "      var getObject = function(data) {\n"
-  "        if(typeof data != \"string\") return data;\n"
-  "        data = eval(\"(\" + data + \")\");\n"
-  "        return data;\n"
-  "      }\n"
-  "      if ( settings.type == \"html5\" ) {\n"
-  "        var object = {};\n"
-  "        $( elem.attributes ).each(function() {\n"
-  "          var name = this.nodeName;\n"
-  "          if(name.match(/^data-/)) name = name.replace(/^data-/, '');\n"
-  "          else return true;\n"
-  "          object[name] = getObject(this.nodeValue);\n"
-  "        });\n"
-  "      } else {\n"
-  "        if ( settings.type == \"class\" ) {\n"
-  "          var m = settings.cre.exec( elem.className );\n"
-  "          if ( m )\n"
-  "            data = m[1];\n"
-  "        } else if ( settings.type == \"elem\" ) {\n"
-  "          if( !elem.getElementsByTagName ) return;\n"
-  "          var e = elem.getElementsByTagName(settings.name);\n"
-  "          if ( e.length )\n"
-  "            data = $.trim(e[0].innerHTML);\n"
-  "        } else if ( elem.getAttribute != undefined ) {\n"
-  "          var attr = elem.getAttribute( settings.name );\n"
-  "          if ( attr )\n"
-  "            data = attr;\n"
-  "        }\n"
-  "        object = getObject(data.indexOf(\"{\") < 0 ? \"{\" + data + \"}\" : data);\n"
-  "      }\n"
-  "      $.data( elem, settings.single, object );\n"
-  "      return object;\n"
-  "    }\n"
-  "  }\n"
-  "});\n"
-  "$.fn.metadata = function( opts ){\n"
-  "  return $.metadata.get( this[0], opts );\n"
-  "};\n"
-  "})(jQuery);";
-
-static const char jquery_tablesorter_min_js[] =
-  "(function($){$.extend({tablesorter:new\n"
-  "function(){var parsers=[],widgets=[];this.defaults={cssHeader:\"header\",css"
-  "Asc:\"headerSortUp\",cssDesc:\"headerSortDown\",cssChildRow:\"expand-child\""
-  ",sortInitialOrder:\"asc\",sortMultiSortKey:\"shiftKey\",sortForce:null,sortA"
-  "ppend:null,sortLocaleCompare:true,textExtraction:\"simple\",parsers:{},widge"
-  "ts:[],widgetZebra:{css:[\"even\",\"odd\"]},headers:{},widthFixed:false,cance"
-  "lSelection:true,sortList:[],headerList:[],dateFormat:\"us\",decimal:'/\\.|\\"
-  ",/g',onRenderHeader:null,selectorHeaders:'thead th',debug:false};function be"
-  "nchmark(s,d){log(s+\",\"+(new Date().getTime()-d.getTime())+\"ms\");}this.be"
-  "nchmark=benchmark;function log(s){if(typeof console!=\"undefined\"&&typeof c"
-  "onsole.debug!=\"undefined\"){console.log(s);}else{alert(s);}}function buildP"
-  "arserCache(table,$headers){if(table.config.debug){var parsersDebug=\"\";}if("
-  "table.tBodies.length==0)return;var rows=table.tBodies[0].rows;if(rows[0]){va"
-  "r list=[],cells=rows[0].cells,l=cells.length;for(var i=0;i<l;i++){var p=fals"
-  "e;if($.metadata&&($($headers[i]).metadata()&&$($headers[i]).metadata().sorte"
-  "r)){p=getParserById($($headers[i]).metadata().sorter);}else if((table.config"
-  ".headers[i]&&table.config.headers[i].sorter)){p=getParserById(table.config.h"
-  "eaders[i].sorter);}if(!p){p=detectParserForColumn(table,rows,-1,i);}if(table"
-  ".config.debug){parsersDebug+=\"column:\"+i+\" parser:\"+p.id+\"\\n\";}list.p"
-  "ush(p);}}if(table.config.debug){log(parsersDebug);}return list;};function de"
-  "tectParserForColumn(table,rows,rowIndex,cellIndex){var l=parsers.length,node"
-  "=false,nodeValue=false,keepLooking=true;while(nodeValue==''&&keepLooking){ro"
-  "wIndex++;if(rows[rowIndex]){node=getNodeFromRowAndCellIndex(rows,rowIndex,ce"
-  "llIndex);nodeValue=trimAndGetNodeText(table.config,node);if(table.config.deb"
-  "ug){log('Checking if value was empty on row:'+rowIndex);}}else{keepLooking=f"
-  "alse;}}for(var i=1;i<l;i++){if(parsers[i].is(nodeValue,table,node)){return p"
-  "arsers[i];}}return parsers[0];}function getNodeFromRowAndCellIndex(rows,rowI"
-  "ndex,cellIndex){return rows[rowIndex].cells[cellIndex];}function trimAndGetN"
-  "odeText(config,node){return $.trim(getElementText(config,node));}function ge"
-  "tParserById(name){var l=parsers.length;for(var i=0;i<l;i++){if(parsers[i].id"
-  ".toLowerCase()==name.toLowerCase()){return parsers[i];}}return false;}functi"
-  "on buildCache(table){if(table.config.debug){var cacheTime=new Date();}var to"
-  "talRows=(table.tBodies[0]&&table.tBodies[0].rows.length)||0,totalCells=(tabl"
-  "e.tBodies[0].rows[0]&&table.tBodies[0].rows[0].cells.length)||0,parsers=tabl"
-  "e.config.parsers,cache={row:[],normalized:[]};for(var i=0;i<totalRows;++i){v"
-  "ar c=$(table.tBodies[0].rows[i]),cols=[];if(c.hasClass(table.config.cssChild"
-  "Row)){cache.row[cache.row.length-1]=cache.row[cache.row.length-1].add(c);con"
-  "tinue;}cache.row.push(c);for(var j=0;j<totalCells;++j){cols.push(parsers[j]."
-  "format(getElementText(table.config,c[0].cells[j]),table,c[0].cells[j]));}col"
-  "s.push(cache.normalized.length);cache.normalized.push(cols);cols=null;};if(t"
-  "able.config.debug){benchmark(\"Building cache for \"+totalRows+\" rows:\",ca"
-  "cheTime);}return cache;};function getElementText(config,node){var text=\"\";"
-  "if(!node)return\"\";if(!config.supportsTextContent)config.supportsTextConten"
-  "t=node.textContent||false;if(config.textExtraction==\"simple\"){if(config.su"
-  "pportsTextContent){text=node.textContent;}else{if(node.childNodes[0]&&node.c"
-  "hildNodes[0].hasChildNodes()){text=node.childNodes[0].innerHTML;}else{text=n"
-  "ode.innerHTML;}}}else{if(typeof(config.textExtraction)==\"function\"){text=c"
-  "onfig.textExtraction(node);}else{text=$(node).text();}}return text;}function"
-  " appendToTable(table,cache){if(table.config.debug){var appendTime=new Date()"
-  "}var c=cache,r=c.row,n=c.normalized,totalRows=n.length,checkCell=(n[0].lengt"
-  "h-1),tableBody=$(table.tBodies[0]),rows=[];for(var i=0;i<totalRows;i++){var "
-  "pos=n[i][checkCell];rows.push(r[pos]);if(!table.config.appender){var l=r[pos"
-  "].length;for(var j=0;j<l;j++){tableBody[0].appendChild(r[pos][j]);}}}if(tabl"
-  "e.config.appender){table.config.appender(table,rows);}rows=null;if(table.con"
-  "fig.debug){benchmark(\"Rebuilt table:\",appendTime);}applyWidget(table);setT"
-  "imeout(function(){$(table).trigger(\"sortEnd\");},0);};function buildHeaders"
-  "(table){if(table.config.debug){var time=new Date();}var meta=($.metadata)?tr"
-  "ue:false;var header_index=computeTableHeaderCellIndexes(table);$tableHeaders"
-  "=$(table.config.selectorHeaders,table).each(function(index){this.column=head"
-  "er_index[this.parentNode.rowIndex+\"-\"+this.cellIndex];this.order=formatSor"
-  "tingOrder(table.config.sortInitialOrder);this.count=this.order;if(checkHeade"
-  "rMetadata(this)||checkHeaderOptions(table,index))this.sortDisabled=true;if(c"
-  "heckHeaderOptionsSortingLocked(table,index))this.order=this.lockedOrder=chec"
-  "kHeaderOptionsSortingLocked(table,index);if(!this.sortDisabled){var $th=$(th"
-  "is).addClass(table.config.cssHeader);if(table.config.onRenderHeader)table.co"
-  "nfig.onRenderHeader.apply($th);}table.config.headerList[index]=this;});if(ta"
-  "ble.config.debug){benchmark(\"Built headers:\",time);log($tableHeaders);}ret"
-  "urn $tableHeaders;};function computeTableHeaderCellIndexes(t){var matrix=[];"
-  "var lookup={};var thead=t.getElementsByTagName('THEAD')[0];var trs=thead.get"
-  "ElementsByTagName('TR');for(var i=0;i<trs.length;i++){var cells=trs[i].cells"
-  ";for(var j=0;j<cells.length;j++){var c=cells[j];var rowIndex=c.parentNode.ro"
-  "wIndex;var cellId=rowIndex+\"-\"+c.cellIndex;var rowSpan=c.rowSpan||1;var co"
-  "lSpan=c.colSpan||1\n"
-  "var firstAvailCol;if(typeof(matrix[rowIndex])==\"undefined\"){matrix[rowInde"
-  "x]=[];}for(var k=0;k<matrix[rowIndex].length+1;k++){if(typeof(matrix[rowInde"
-  "x][k])==\"undefined\"){firstAvailCol=k;break;}}lookup[cellId]=firstAvailCol;"
-  "for(var k=rowIndex;k<rowIndex+rowSpan;k++){if(typeof(matrix[k])==\"undefined"
-  "\"){matrix[k]=[];}var matrixrow=matrix[k];for(var l=firstAvailCol;l<firstAva"
-  "ilCol+colSpan;l++){matrixrow[l]=\"x\";}}}}return lookup;}function checkCellC"
-  "olSpan(table,rows,row){var arr=[],r=table.tHead.rows,c=r[row].cells;for(var "
-  "i=0;i<c.length;i++){var cell=c[i];if(cell.colSpan>1){arr=arr.concat(checkCel"
-  "lColSpan(table,headerArr,row++));}else{if(table.tHead.length==1||(cell.rowSp"
-  "an>1||!r[row+1])){arr.push(cell);}}}return arr;};function checkHeaderMetadat"
-  "a(cell){if(($.metadata)&&($(cell).metadata().sorter===false)){return true;};"
-  "return false;}function checkHeaderOptions(table,i){if((table.config.headers["
-  "i])&&(table.config.headers[i].sorter===false)){return true;};return false;}f"
-  "unction checkHeaderOptionsSortingLocked(table,i){if((table.config.headers[i]"
-  ")&&(table.config.headers[i].lockedOrder))return table.config.headers[i].lock"
-  "edOrder;return false;}function applyWidget(table){var c=table.config.widgets"
-  ";var l=c.length;for(var i=0;i<l;i++){getWidgetById(c[i]).format(table);}}fun"
-  "ction getWidgetById(name){var l=widgets.length;for(var i=0;i<l;i++){if(widge"
-  "ts[i].id.toLowerCase()==name.toLowerCase()){return widgets[i];}}};function f"
-  "ormatSortingOrder(v){if(typeof(v)!=\"Number\"){return(v.toLowerCase()==\"des"
-  "c\")?1:0;}else{return(v==1)?1:0;}}function isValueInArray(v,a){var l=a.lengt"
-  "h;for(var i=0;i<l;i++){if(a[i][0]==v){return true;}}return false;}function s"
-  "etHeadersCss(table,$headers,list,css){$headers.removeClass(css[0]).removeCla"
-  "ss(css[1]);var h=[];$headers.each(function(offset){if(!this.sortDisabled){h["
-  "this.column]=$(this);}});var l=list.length;for(var i=0;i<l;i++){h[list[i][0]"
-  "].addClass(css[list[i][1]]);}}function fixColumnWidth(table,$headers){var c="
-  "table.config;if(c.widthFixed){var colgroup=$('<colgroup>');$(\"tr:first td\""
-  ",table.tBodies[0]).each(function(){colgroup.append($('<col>').css('width',$("
-  "this).width()));});$(table).prepend(colgroup);};}function updateHeaderSortCo"
-  "unt(table,sortList){var c=table.config,l=sortList.length;for(var i=0;i<l;i++"
-  "){var s=sortList[i],o=c.headerList[s[0]];o.count=s[1];o.count++;}}function m"
-  "ultisort(table,sortList,cache){if(table.config.debug){var sortTime=new Date("
-  ");}var dynamicExp=\"var sortWrapper = function(a,b) {\",l=sortList.length;fo"
-  "r(var i=0;i<l;i++){var c=sortList[i][0];var order=sortList[i][1];var s=(tabl"
-  "e.config.parsers[c].type==\"text\")?((order==0)?makeSortFunction(\"text\",\""
-  "asc\",c):makeSortFunction(\"text\",\"desc\",c)):((order==0)?makeSortFunction"
- "(\"numeric\",\"asc\",c):makeSortFunction(\"numeric\",\"desc\",c));var e=\"e\""
-   "+i;dynamicExp+=\"var \"+e+\" = \"+s;dynamicExp+=\"if(\"+e+\") { return \"+e"
-  "+\"; } \";dynamicExp+=\"else { \";}var orgOrderCol=cache.normalized[0].lengt"
-  "h-1;dynamicExp+=\"return a[\"+orgOrderCol+\"]-b[\"+orgOrderCol+\"];\";for(va"
- "r i=0;i<l;i++){dynamicExp+=\"}; \";}dynamicExp+=\"return 0; \";dynamicExp+=\""
-   "}; \";if(table.config.debug){benchmark(\"Evaling expression:\"+dynamicExp,n"
-  "ew Date());}eval(dynamicExp);cache.normalized.sort(sortWrapper);if(table.con"
-  "fig.debug){benchmark(\"Sorting on \"+sortList.toString()+\" and dir \"+order"
-  "+\" time:\",sortTime);}return cache;};function makeSortFunction(type,directi"
-  "on,index){var a=\"a[\"+index+\"]\",b=\"b[\"+index+\"]\";if(type=='text'&&dir"
-  "ection=='asc'){return\"(\"+a+\" == \"+b+\" ? 0 : (\"+a+\" === null ? Number."
-  "POSITIVE_INFINITY : (\"+b+\" === null ? Number.NEGATIVE_INFINITY : (\"+a+\" "
- "< \"+b+\") ? -1 : 1 )));\";}else if(type=='text'&&direction=='desc'){return\""
-  "(\"+a+\" == \"+b+\" ? 0 : (\"+a+\" === null ? Number.POSITIVE_INFINITY : (\""
-   "+b+\" === null ? Number.NEGATIVE_INFINITY : (\"+b+\" < \"+a+\") ? -1 : 1 ))"
-  ");\";}else if(type=='numeric'&&direction=='asc'){return\"(\"+a+\" === null &"
-  "& \"+b+\" === null) ? 0 :(\"+a+\" === null ? Number.POSITIVE_INFINITY : (\"+"
-  "b+\" === null ? Number.NEGATIVE_INFINITY : \"+a+\" - \"+b+\"));\";}else if(t"
-  "ype=='numeric'&&direction=='desc'){return\"(\"+a+\" === null && \"+b+\" === "
-  "null) ? 0 :(\"+a+\" === null ? Number.POSITIVE_INFINITY : (\"+b+\" === null "
-  "? Number.NEGATIVE_INFINITY : \"+b+\" - \"+a+\"));\";}};function makeSortText"
-  "(i){return\"((a[\"+i+\"] < b[\"+i+\"]) ? -1 : ((a[\"+i+\"] > b[\"+i+\"]) ? 1"
-  " : 0));\";};function makeSortTextDesc(i){return\"((b[\"+i+\"] < a[\"+i+\"]) "
-  "? -1 : ((b[\"+i+\"] > a[\"+i+\"]) ? 1 : 0));\";};function makeSortNumeric(i)"
-  "{return\"a[\"+i+\"]-b[\"+i+\"];\";};function makeSortNumericDesc(i){return\""
-  "b[\"+i+\"]-a[\"+i+\"];\";};function sortText(a,b){if(table.config.sortLocale"
-  "Compare)return a.localeCompare(b);return((a<b)?-1:((a>b)?1:0));};function so"
-  "rtTextDesc(a,b){if(table.config.sortLocaleCompare)return b.localeCompare(a);"
-  "return((b<a)?-1:((b>a)?1:0));};function sortNumeric(a,b){return a-b;};functi"
-  "on sortNumericDesc(a,b){return b-a;};function getCachedSortType(parsers,i){r"
-  "eturn parsers[i].type;};this.construct=function(settings){return this.each(f"
-  "unction(){if(!this.tHead||!this.tBodies)return;var $this,$document,$headers,"
-  "cache,config,shiftDown=0,sortOrder;this.config={};config=$.extend(this.confi"
-  "g,$.tablesorter.defaults,settings);$this=$(this);$.data(this,\"tablesorter\""
-  ",config);$headers=buildHeaders(this);this.config.parsers=buildParserCache(th"
-  "is,$headers);cache=buildCache(this);var sortCSS=[config.cssDesc,config.cssAs"
-  "c];fixColumnWidth(this);$headers.click(function(e){var totalRows=($this[0].t"
-  "Bodies[0]&&$this[0].tBodies[0].rows.length)||0;if(!this.sortDisabled&&totalR"
-  "ows>0){$this.trigger(\"sortStart\");var $cell=$(this);var i=this.column;this"
-  ".order=this.count++%2;if(this.lockedOrder)this.order=this.lockedOrder;if(!e["
-  "config.sortMultiSortKey]){config.sortList=[];if(config.sortForce!=null){var "
-  "a=config.sortForce;for(var j=0;j<a.length;j++){if(a[j][0]!=i){config.sortLis"
-  "t.push(a[j]);}}}config.sortList.push([i,this.order]);}else{if(isValueInArray"
-  "(i,config.sortList)){for(var j=0;j<config.sortList.length;j++){var s=config."
-  "sortList[j],o=config.headerList[s[0]];if(s[0]==i){o.count=s[1];o.count++;s[1"
-  "]=o.count%2;}}}else{config.sortList.push([i,this.order]);}};setTimeout(funct"
-  "ion(){setHeadersCss($this[0],$headers,config.sortList,sortCSS);appendToTable"
-  "($this[0],multisort($this[0],config.sortList,cache));},1);return false;}}).m"
-  "ousedown(function(){if(config.cancelSelection){this.onselectstart=function()"
-  "{return false};return false;}});$this.bind(\"update\",function(){var me=this"
-  ";setTimeout(function(){me.config.parsers=buildParserCache(me,$headers);cache"
-  "=buildCache(me);},1);}).bind(\"updateCell\",function(e,cell){var config=this"
-  ".config;var pos=[(cell.parentNode.rowIndex-1),cell.cellIndex];cache.normaliz"
-  "ed[pos[0]][pos[1]]=config.parsers[pos[1]].format(getElementText(config,cell)"
-  ",cell);}).bind(\"sorton\",function(e,list){$(this).trigger(\"sortStart\");co"
-  "nfig.sortList=list;var sortList=config.sortList;updateHeaderSortCount(this,s"
-  "ortList);setHeadersCss(this,$headers,sortList,sortCSS);appendToTable(this,mu"
-  "ltisort(this,sortList,cache));}).bind(\"appendCache\",function(){appendToTab"
-  "le(this,cache);}).bind(\"applyWidgetId\",function(e,id){getWidgetById(id).fo"
-  "rmat(this);}).bind(\"applyWidgets\",function(){applyWidget(this);});if($.met"
-  "adata&&($(this).metadata()&&$(this).metadata().sortlist)){config.sortList=$("
-  "this).metadata().sortlist;}if(config.sortList.length>0){$this.trigger(\"sort"
-  "on\",[config.sortList]);}applyWidget(this);});};this.addParser=function(pars"
-  "er){var l=parsers.length,a=true;for(var i=0;i<l;i++){if(parsers[i].id.toLowe"
-  "rCase()==parser.id.toLowerCase()){a=false;}}if(a){parsers.push(parser);};};t"
-  "his.addWidget=function(widget){widgets.push(widget);};this.formatFloat=funct"
-  "ion(s){var i=parseFloat(s);return(isNaN(i))?0:i;};this.formatInt=function(s)"
-  "{var i=parseInt(s);return(isNaN(i))?0:i;};this.isDigit=function(s,config){re"
-  "turn/^[-+]?\\d*$/.test($.trim(s.replace(/[,.']/g,'')));};this.clearTableBody"
-  "=function(table){if($.browser.msie){function empty(){while(this.firstChild)t"
-  "his.removeChild(this.firstChild);}empty.apply(table.tBodies[0]);}else{table."
-  "tBodies[0].innerHTML=\"\";}};}});$.fn.extend({tablesorter:$.tablesorter.cons"
-  "truct});var ts=$.tablesorter;ts.addParser({id:\"text\",is:function(s){return"
-  " true;},format:function(s){return $.trim(s.toLocaleLowerCase());},type:\"tex"
-  "t\"});ts.addParser({id:\"digit\",is:function(s,table){var c=table.config;ret"
-  "urn $.tablesorter.isDigit(s,c);},format:function(s){return $.tablesorter.for"
-  "matFloat(s);},type:\"numeric\"});ts.addParser({id:\"currency\",is:function(s"
-  "){return/^[£$€?.]/.test(s);},format:function(s){return $.tablesorter.formatF"
-  "loat(s.replace(new RegExp(/[£$€]/g),\"\"));},type:\"numeric\"});ts.addParser"
-  "({id:\"ipAddress\",is:function(s){return/^\\d{2,3}[\\.]\\d{2,3}[\\.]\\d{2,3}"
-  "[\\.]\\d{2,3}$/.test(s);},format:function(s){var a=s.split(\".\"),r=\"\",l=a"
-  ".length;for(var i=0;i<l;i++){var item=a[i];if(item.length==2){r+=\"0\"+item;"
-  "}else{r+=item;}}return $.tablesorter.formatFloat(r);},type:\"numeric\"});ts."
-  "addParser({id:\"url\",is:function(s){return/^(https?|ftp|file):\\/\\/$/.test"
-  "(s);},format:function(s){return jQuery.trim(s.replace(new RegExp(/(https?|ft"
-  "p|file):\\/\\//),''));},type:\"text\"});ts.addParser({id:\"isoDate\",is:func"
-  "tion(s){return/^\\d{4}[\\/-]\\d{1,2}[\\/-]\\d{1,2}$/.test(s);},format:functi"
-  "on(s){return $.tablesorter.formatFloat((s!=\"\")?new Date(s.replace(new RegE"
-  "xp(/-/g),\"/\")).getTime():\"0\");},type:\"numeric\"});ts.addParser({id:\"pe"
-  "rcent\",is:function(s){return/\\%$/.test($.trim(s));},format:function(s){ret"
-  "urn $.tablesorter.formatFloat(s.replace(new RegExp(/%/g),\"\"));},type:\"num"
-  "eric\"});ts.addParser({id:\"usLongDate\",is:function(s){return s.match(new R"
-  "egExp(/^[A-Za-z]{3,10}\\.? [0-9]{1,2}, ([0-9]{4}|'?[0-9]{2}) (([0-2]?[0-9]:["
-  "0-5][0-9])|([0-1]?[0-9]:[0-5][0-9]\\s(AM|PM)))$/));},format:function(s){retu"
-  "rn $.tablesorter.formatFloat(new Date(s).getTime());},type:\"numeric\"});ts."
-   "addParser({id:\"shortDate\",is:function(s){return/\\d{1,2}[\\/\\-]\\d{1,2}["
-  "\\/\\-]\\d{2,4}/.test(s);},format:function(s,table){var c=table.config;s=s.r"
-  "eplace(/\\-/g,\"/\");if(c.dateFormat==\"us\"){s=s.replace(/(\\d{1,2})[\\/\\-"
-  "](\\d{1,2})[\\/\\-](\\d{4})/,\"$3/$1/$2\");}else if(c.dateFormat==\"uk\"){s="
-  "s.replace(/(\\d{1,2})[\\/\\-](\\d{1,2})[\\/\\-](\\d{4})/,\"$3/$2/$1\");}else"
-  " if(c.dateFormat==\"dd/mm/yy\"||c.dateFormat==\"dd-mm-yy\"){s=s.replace(/(\\"
-  "d{1,2})[\\/\\-](\\d{1,2})[\\/\\-](\\d{2})/,\"$1/$2/$3\");}return $.tablesort"
-  "er.formatFloat(new Date(s).getTime());},type:\"numeric\"});ts.addParser({id:"
-  "\"time\",is:function(s){return/^(([0-2]?[0-9]:[0-5][0-9])|([0-1]?[0-9]:[0-5]"
-  "[0-9]\\s(am|pm)))$/.test(s);},format:function(s){return $.tablesorter.format"
-  "Float(new Date(\"2000/01/01 \"+s).getTime());},type:\"numeric\"});ts.addPars"
-  "er({id:\"metadata\",is:function(s){return false;},format:function(s,table,ce"
-  "ll){var c=table.config,p=(!c.parserMetadataName)?'sortValue':c.parserMetadat"
-  "aName;return $(cell).metadata()[p];},type:\"numeric\"});ts.addWidget({id:\"z"
-  "ebra\",format:function(table){if(table.config.debug){var time=new Date();}va"
-  "r $tr,row=-1,odd;$(\"tr:visible\",table.tBodies[0]).each(function(i){$tr=$(t"
-  "his);if(!$tr.hasClass(table.config.cssChildRow))row++;odd=(row%2==0);$tr.rem"
-  "oveClass(table.config.widgetZebra.css[odd?0:1]).addClass(table.config.widget"
-  "Zebra.css[odd?1:0])});if(table.config.debug){$.tablesorter.benchmark(\"Apply"
-  "ing Zebra widget\",time);}}});})(jQuery);\n";
-
-static const char tablesorter_css[] =
-  "table.tablesorter"
-  " { background-color: #CDCDCD; margin:10px 0pt 15px; width: 100%%; text-align: left; }\n"
-  "table.tablesorter thead tr th, table.tablesorter tfoot tr th"
-  " { background-color: #e6EEEE; border: 1px solid #FFF; padding: 4px; }\n"
-  "table.tablesorter thead tr .header"
-  " { cursor: pointer; }\n"
-  "table.tablesorter tbody td"
-  " { color: #3D3D3D; padding: 4px; background-color: #FFF; vertical-align: top; }\n"
-  "table.tablesorter tbody tr.odd td"
-  " { background-color:#F0F0F6; }\n"
-  "table.tablesorter thead tr .headerSortDown, table.tablesorter thead tr .headerSortUp"
-  " { background-color: #8dbdd8; }\n";
-
 /* ------------------------------------------------------------------------- *
  * analyze_emit_page_table
  * ------------------------------------------------------------------------- */
 
-void
-analyze_emit_page_table(analyze_t *self, FILE *file, const meminfo_t *mtab)
+static void
+analyze_emit_page_table(analyze_t *self, FILE *file, const meminfo_t *mtab, const pidinfo_t *pidinfo)
 {
   fprintf(file, "<table border=1>\n");
   fprintf(file, "<tr>\n");
@@ -2978,11 +2762,22 @@ analyze_emit_page_table(analyze_t *self, FILE *file, const meminfo_t *mtab)
   fprintf(file, "<th"TP"colspan=2>%s\n", "Dirty");
   fprintf(file, "<th"TP"colspan=2>%s\n", "Clean");
   fprintf(file, "<th"TP"rowspan=2>%s\n", "Resident");
+  if (pidinfo)
+  {
+    fprintf(file, "<th"TP"rowspan=2>%s\n",
+        "<abbr title='VmHWM field of /proc/pid/status'>Resident Peak</abbr>");
+  }
   fprintf(file, "<th"TP"rowspan=2>%s\n", "Size");
-  fprintf(file, "<th"TP"rowspan=2>%s\n", "<abbr title=\"Shared Clean + Shared Dirty\">COW</abbr>");
+  if (pidinfo)
+  {
+    fprintf(file, "<th"TP"rowspan=2>%s\n",
+        "<abbr title='VmPeak field of /proc/pid/status'>Size Peak</abbr>");
+  }
   fprintf(file, "<th"TP"rowspan=2>%s\n", "Pss");
   fprintf(file, "<th"TP"rowspan=2>%s\n", "Swap");
   fprintf(file, "<th"TP"rowspan=2>%s\n", "Referenced");
+  fprintf(file, "<th"TP"rowspan=2>%s\n", "Anonymous");
+  fprintf(file, "<th"TP"rowspan=2>%s\n", "Locked");
 
   fprintf(file, "<tr>\n");
   fprintf(file, "<th"TP">%s\n", "Private");
@@ -3002,12 +2797,22 @@ analyze_emit_page_table(analyze_t *self, FILE *file, const meminfo_t *mtab)
     fprintf(file, "<td %s align=right>%s\n", bg, uval(m->Private_Clean));
     fprintf(file, "<td %s align=right>%s\n", bg, uval(m->Shared_Clean));
     fprintf(file, "<td %s align=right>%s\n", bg, uval(m->Rss));
+    if (pidinfo)
+    {
+      fprintf(file, "<td %s align=right>%s\n", bg,
+          uval(t==0 ? pidinfo->VmHWM : 0));
+    }
     fprintf(file, "<td %s align=right>%s\n", bg, uval(m->Size));
-    fprintf(file, "<td %s align=right>%s\n", bg, uval(meminfo_cowest(m)));
+    if (pidinfo)
+    {
+      fprintf(file, "<td %s align=right>%s\n", bg,
+          uval(t==0 ? pidinfo->VmPeak : 0));
+    }
     fprintf(file, "<td %s align=right>%s\n", bg, uval(m->Pss));
     fprintf(file, "<td %s align=right>%s\n", bg, uval(m->Swap));
     fprintf(file, "<td %s align=right>%s\n", bg, uval(m->Referenced));
-
+    fprintf(file, "<td %s align=right>%s\n", bg, uval(m->Anonymous));
+    fprintf(file, "<td %s align=right>%s\n", bg, uval(m->Locked));
   }
   fprintf(file, "</table>\n");
 }
@@ -3019,6 +2824,7 @@ analyze_emit_page_table(analyze_t *self, FILE *file, const meminfo_t *mtab)
 static void
 analyze_emit_xref_header(const analyze_t *self, FILE *file, enum emit_type type)
 {
+  fprintf(file, "<thead>\n");
   fprintf(file, "<tr>\n");
   fprintf(file, "<th"TP">%s\n", emit_type_titles[type]);
   fprintf(file, "<th"TP">%s\n", "Type");
@@ -3029,9 +2835,10 @@ analyze_emit_xref_header(const analyze_t *self, FILE *file, enum emit_type type)
   fprintf(file, "<th"TP">%s\n", "Dirty<br>Shared");
   fprintf(file, "<th"TP">%s\n", "Clean<br>Private");
   fprintf(file, "<th"TP">%s\n", "Clean<br>Shared");
-  fprintf(file, "<th"TP">%s %s\n", "Pss", HTML_DOWN_ARROW);
+  fprintf(file, "<th"TP">%s\n", "Pss");
   fprintf(file, "<th"TP">%s\n", "Swap");
-  fprintf(file, "<th"TP">%s\n", "Referenced");
+  fprintf(file, "<th"TP">%s\n", "Anonymous");
+  fprintf(file, "<th"TP">%s\n", "Locked");
 }
 
 /* ------------------------------------------------------------------------- *
@@ -3138,37 +2945,30 @@ analyze_emit_lib_html(analyze_t *self, smapssnap_t *snap, const char *work)
       goto cleanup;
     }
 
-    /* - - - - - - - - - - - - - - - - - - - *
-     * html header
-     * - - - - - - - - - - - - - - - - - - - */
-
-    fprintf(file, "<html>\n");
-    fprintf(file, "<head>\n");
-    fprintf(file, "<title>%s</title>\n", path_basename(self->spath[l]));
-    fprintf(file, "</head>\n");
-    fprintf(file, "<body>\n");
+    analyze_html_header(file, path_basename(self->spath[l]), ".");
 
     /* - - - - - - - - - - - - - - - - - - - *
      * summary table
      * - - - - - - - - - - - - - - - - - - - */
 
     fprintf(file, "<h1>%s: %s</h1>\n", emit_type_titles[EMIT_TYPE_LIBRARY], self->spath[l]);
-    analyze_emit_page_table(self, file, analyze_lib_mem(self, l, 0));
+    analyze_emit_page_table(self, file, analyze_lib_mem(self, l, 0), NULL);
 
     /* - - - - - - - - - - - - - - - - - - - *
      * application xref
      * - - - - - - - - - - - - - - - - - - - */
 
     fprintf(file, "<h1>%s XREF</h1>\n", emit_type_titles[EMIT_TYPE_APPLICATION]);
-    fprintf(file, "<table border=1>\n");
-
+    /* Sort initially by 9th column (PSS) in descending order */
+    fprintf(file, "<table border=1 class=\"tablesorter { sortlist: [[9,0]] }\">\n");
     analyze_emit_xref_header(self, file, EMIT_TYPE_APPLICATION);
+    fprintf(file, "<tbody>\n");
 
     int alo,ahi, blo,bhi;
 
     analyze_get_librange(self, 0, self->mapp_tab->size, &alo, &ahi, l);
 
-    for( int base=alo, rows_out=0; alo < ahi; alo = bhi )
+    for( ; alo < ahi; alo = bhi )
     {
       m = self->mapp_tab->data[alo];
       a = m->smapsmapp_AID;
@@ -3180,37 +2980,26 @@ analyze_emit_lib_html(analyze_t *self, smapssnap_t *snap, const char *work)
         m = self->mapp_tab->data[i];
         t = m->smapsmapp_TID;
 
-        fprintf(file, "<tr>\n");
+        fprintf(file,
+                "<tr>\n"
+                "<th"LT"align=left>"
+                "<a href=\"app%03d.html\">%s</a>\n",
+                a, abbr_title(path_basename(self->sappl[a])));
 
-        if( i == blo )
-        {
-          fprintf(file,
-                  "<th"LT"rowspan=%d align=left>"
-                  "<a href=\"app%03d.html\">%s</a>\n",
-                  bhi-blo, a, path_basename(self->sappl[a]));
-        }
-
-        const char *bg = (((i-base)/3)&1) ? D1 : D2;
-        fprintf(file, "<td%s align=left>%s\n", bg, m->smapsmapp_map.type);
-        fprintf(file, "<td%s align=left style='font-family: monospace;'>%s\n", bg, m->smapsmapp_map.prot);
-        fprintf(file, "<td%s align=right>%s\n", bg, uval(m->smapsmapp_mem.Size));
-        fprintf(file, "<td%s align=right>%s\n", bg, uval(m->smapsmapp_mem.Rss));
-        fprintf(file, "<td%s align=right>%s\n", bg, uval(m->smapsmapp_mem.Private_Dirty));
-        fprintf(file, "<td%s align=right>%s\n", bg, uval(m->smapsmapp_mem.Shared_Dirty));
-        fprintf(file, "<td%s align=right>%s\n", bg, uval(m->smapsmapp_mem.Private_Clean));
-        fprintf(file, "<td%s align=right>%s\n", bg, uval(m->smapsmapp_mem.Shared_Clean));
-        fprintf(file, "<td%s align=right>%s\n", bg, uval(m->smapsmapp_mem.Pss));
-        fprintf(file, "<td%s align=right>%s\n", bg, uval(m->smapsmapp_mem.Swap));
-        fprintf(file, "<td%s align=right>%s\n", bg, uval(m->smapsmapp_mem.Referenced));
-      }
-      rows_out += bhi-blo;
-      if( rows_out > 25 )
-      {
-        analyze_emit_xref_header(self, file, EMIT_TYPE_APPLICATION);
-        rows_out = 0;
+        fprintf(file, "<td align=left>%s\n", m->smapsmapp_map.type);
+        fprintf(file, "<td align=left style='font-family: monospace;'>%s\n", m->smapsmapp_map.prot);
+        fprintf(file, "<td align=right>%s\n", uval(m->smapsmapp_mem.Size));
+        fprintf(file, "<td align=right>%s\n", uval(m->smapsmapp_mem.Rss));
+        fprintf(file, "<td align=right>%s\n", uval(m->smapsmapp_mem.Private_Dirty));
+        fprintf(file, "<td align=right>%s\n", uval(m->smapsmapp_mem.Shared_Dirty));
+        fprintf(file, "<td align=right>%s\n", uval(m->smapsmapp_mem.Private_Clean));
+        fprintf(file, "<td align=right>%s\n", uval(m->smapsmapp_mem.Shared_Clean));
+        fprintf(file, "<td align=right>%s\n", uval(m->smapsmapp_mem.Pss));
+        fprintf(file, "<td align=right>%s\n", uval(m->smapsmapp_mem.Swap));
+        fprintf(file, "<td align=right>%s\n", uval(m->smapsmapp_mem.Anonymous));
+        fprintf(file, "<td align=right>%s\n", uval(m->smapsmapp_mem.Locked));
       }
     }
-    analyze_emit_xref_header(self, file, EMIT_TYPE_APPLICATION);
 
     fprintf(file, "</table>\n");
 
@@ -3237,6 +3026,25 @@ analyze_emit_lib_html(analyze_t *self, smapssnap_t *snap, const char *work)
 /* ------------------------------------------------------------------------- *
  * analyze_emit_app_html
  * ------------------------------------------------------------------------- */
+
+static const pidinfo_t *
+pidinfo_from_smapssnap(const smapssnap_t *snap, const char *sappl)
+{
+  char temp[512];
+  size_t i;
+  for (i=0; i < array_size(&snap->smapssnap_proclist); ++i)
+  {
+    smapsproc_t *proc = array_get(&snap->smapssnap_proclist, i);
+    if (!proc)
+      continue;
+    snprintf(temp, sizeof temp, "%s (%d)",
+             proc->smapsproc_pid.Name,
+             proc->smapsproc_pid.Pid);
+    if (strcmp(temp, sappl) == 0)
+      return &proc->smapsproc_pid;
+  }
+  return NULL;
+}
 
 static int
 local_app_lib_compare(const void *a1, const void *a2)
@@ -3296,37 +3104,31 @@ analyze_emit_app_html(analyze_t *self, smapssnap_t *snap, const char *work)
       goto cleanup;
     }
 
-    /* - - - - - - - - - - - - - - - - - - - *
-     * html header
-     * - - - - - - - - - - - - - - - - - - - */
-
-    fprintf(file, "<html>\n");
-    fprintf(file, "<head>\n");
-    fprintf(file, "<title>%s</title>\n", self->sappl[a]);
-    fprintf(file, "</head>\n");
-    fprintf(file, "<body>\n");
+    analyze_html_header(file, self->sappl[a], ".");
 
     /* - - - - - - - - - - - - - - - - - - - *
      * summary table
      * - - - - - - - - - - - - - - - - - - - */
 
     fprintf(file, "<h1>%s: %s</h1>\n", emit_type_titles[EMIT_TYPE_APPLICATION], self->sappl[a]);
-    analyze_emit_page_table(self, file, analyze_app_mem(self, a, 0));
+    analyze_emit_page_table(self, file, analyze_app_mem(self, a, 0),
+        pidinfo_from_smapssnap(snap, self->sappl[a]));
 
     /* - - - - - - - - - - - - - - - - - - - *
      * library xref
      * - - - - - - - - - - - - - - - - - - - */
 
     fprintf(file, "<h1>%s XREF</h1>\n", "Mapping");
-    fprintf(file, "<table border=1>\n");
-
+    /* Sort initially by 9th column (PSS) in descending order */
+    fprintf(file, "<table border=1 class=\"tablesorter { sortlist: [[9,0]] }\">\n");
     analyze_emit_xref_header(self, file, EMIT_TYPE_OBJECT);
+    fprintf(file, "<tbody>\n");
 
     int alo,ahi, blo,bhi;
 
     analyze_get_apprange(self, 0, self->mapp_tab->size, &alo, &ahi, a);
 
-    for( int base=alo, rows_out=0; alo < ahi; alo = bhi )
+    for( ; alo < ahi; alo = bhi )
     {
       m = self->mapp_tab->data[alo];
       l = m->smapsmapp_LID;
@@ -3338,38 +3140,26 @@ analyze_emit_app_html(analyze_t *self, smapssnap_t *snap, const char *work)
         m = self->mapp_tab->data[i];
         t = m->smapsmapp_TID;
 
-        fprintf(file, "<tr>\n");
+        fprintf(file,
+                "<tr>\n"
+                "<th"LT"align=left>"
+                "<a href=\"lib%03d.html\">%s</a>\n",
+                l, abbr_title(path_basename(self->spath[l])));
 
-        if( i == blo )
-        {
-          fprintf(file,
-                  "<th"LT"rowspan=%d align=left>"
-                  "<a href=\"lib%03d.html\">%s</a>\n",
-                  bhi-blo, l, path_basename(self->spath[l]));
-        }
-
-        const char *bg = (((i-base)/3)&1) ? D1 : D2;
-
-        fprintf(file, "<td%s align=left>%s\n", bg, m->smapsmapp_map.type);
-        fprintf(file, "<td%s align=left style='font-family: monospace;'>%s\n", bg, m->smapsmapp_map.prot);
-        fprintf(file, "<td%s align=right>%s\n", bg, uval(m->smapsmapp_mem.Size));
-        fprintf(file, "<td%s align=right>%s\n", bg, uval(m->smapsmapp_mem.Rss));
-        fprintf(file, "<td%s align=right>%s\n", bg, uval(m->smapsmapp_mem.Private_Dirty));
-        fprintf(file, "<td%s align=right>%s\n", bg, uval(m->smapsmapp_mem.Shared_Dirty));
-        fprintf(file, "<td%s align=right>%s\n", bg, uval(m->smapsmapp_mem.Private_Clean));
-        fprintf(file, "<td%s align=right>%s\n", bg, uval(m->smapsmapp_mem.Shared_Clean));
-        fprintf(file, "<td%s align=right>%s\n", bg, uval(m->smapsmapp_mem.Pss));
-        fprintf(file, "<td%s align=right>%s\n", bg, uval(m->smapsmapp_mem.Swap));
-        fprintf(file, "<td%s align=right>%s\n", bg, uval(m->smapsmapp_mem.Referenced));
-      }
-      rows_out += bhi-blo;
-      if( rows_out > 25 )
-      {
-        analyze_emit_xref_header(self, file, EMIT_TYPE_OBJECT);
-        rows_out = 0;
+        fprintf(file, "<td align=left>%s\n", m->smapsmapp_map.type);
+        fprintf(file, "<td align=left style='font-family: monospace;'>%s\n", m->smapsmapp_map.prot);
+        fprintf(file, "<td align=right>%s\n", uval(m->smapsmapp_mem.Size));
+        fprintf(file, "<td align=right>%s\n", uval(m->smapsmapp_mem.Rss));
+        fprintf(file, "<td align=right>%s\n", uval(m->smapsmapp_mem.Private_Dirty));
+        fprintf(file, "<td align=right>%s\n", uval(m->smapsmapp_mem.Shared_Dirty));
+        fprintf(file, "<td align=right>%s\n", uval(m->smapsmapp_mem.Private_Clean));
+        fprintf(file, "<td align=right>%s\n", uval(m->smapsmapp_mem.Shared_Clean));
+        fprintf(file, "<td align=right>%s\n", uval(m->smapsmapp_mem.Pss));
+        fprintf(file, "<td align=right>%s\n", uval(m->smapsmapp_mem.Swap));
+        fprintf(file, "<td align=right>%s\n", uval(m->smapsmapp_mem.Anonymous));
+        fprintf(file, "<td align=right>%s\n", uval(m->smapsmapp_mem.Locked));
       }
     }
-    analyze_emit_xref_header(self, file, EMIT_TYPE_OBJECT);
 
     fprintf(file, "</table>\n");
 
@@ -3407,10 +3197,11 @@ analyze_emit_smaps_table(analyze_t *self, FILE *file, meminfo_t *v)
   fprintf(file, "<th"TP"colspan=2>%s\n", "Clean");
   fprintf(file, "<th"TP"rowspan=2>%s\n", "Resident");
   fprintf(file, "<th"TP"rowspan=2>%s\n", "Size");
-  fprintf(file, "<th"TP"rowspan=2>%s\n", "<abbr title=\"Shared Clean + Shared Dirty\">COW</abbr>");
   fprintf(file, "<th"TP"rowspan=2>%s\n", "Pss");
   fprintf(file, "<th"TP"rowspan=2>%s\n", "Swap");
   fprintf(file, "<th"TP"rowspan=2>%s\n", "Referenced");
+  fprintf(file, "<th"TP"rowspan=2>%s\n", "Anonymous");
+  fprintf(file, "<th"TP"rowspan=2>%s\n", "Locked");
 
   fprintf(file, "<tr>\n");
   fprintf(file, "<th"TP">%s\n", "Private");
@@ -3431,10 +3222,11 @@ analyze_emit_smaps_table(analyze_t *self, FILE *file, meminfo_t *v)
     fprintf(file, "<td %s align=right>%s\n", bg, uval(m->Shared_Clean));
     fprintf(file, "<td %s align=right>%s\n", bg, uval(m->Rss));
     fprintf(file, "<td %s align=right>%s\n", bg, uval(m->Size));
-    fprintf(file, "<td %s align=right>%s\n", bg, uval(meminfo_cowest(m)));
     fprintf(file, "<td %s align=right>%s\n", bg, uval(m->Pss));
     fprintf(file, "<td %s align=right>%s\n", bg, uval(m->Swap));
     fprintf(file, "<td %s align=right>%s\n", bg, uval(m->Referenced));
+    fprintf(file, "<td %s align=right>%s\n", bg, uval(m->Anonymous));
+    fprintf(file, "<td %s align=right>%s\n", bg, uval(m->Locked));
   }
 
   fprintf(file, "</table>\n");
@@ -3444,20 +3236,21 @@ analyze_emit_smaps_table(analyze_t *self, FILE *file, meminfo_t *v)
  * analyze_emit_table_header
  * ------------------------------------------------------------------------- */
 
-static const char *const virtual_memory_column_titles[][5] = {
+#define VM_COLUMN_COUNT 5
+static const char *const virtual_memory_column_titles[][VM_COLUMN_COUNT] = {
   [EMIT_TYPE_LIBRARY] = {
     "<abbr title=\"Largest value\"><i>RSS</i></abbr>",
     "<abbr title=\"Largest value\"><i>Size</i></abbr>",
     "<abbr title=\"Sum of values\">PSS</abbr> ",
     "<abbr title=\"Largest value\"><i>Swap</i></abbr>",
-    "<abbr title=\"Largest value\"><i>Referenced</i></abbr>",
+    "<abbr title=\"Sum of values\">Locked</abbr>",
   },
   [EMIT_TYPE_APPLICATION] = {
     "RSS",
     "Size",
     "PSS ",
     "Swap",
-    "Referenced",
+    "Locked",
   },
 };
 
@@ -3468,18 +3261,26 @@ analyze_emit_table_header(const analyze_t *self, FILE *file, enum emit_type type
   fprintf(file, "<tr>\n");
   fprintf(file, "<th"TP" rowspan=3>%s\n", emit_type_titles[type]);
   fprintf(file, "<th"TP" colspan=4>%s\n", "RSS / Status");
-  fprintf(file, "<th"TP" rowspan=2 colspan=5>%s\n", "Virtual<br>Memory");
-  fprintf(file, "<th"TP" rowspan=3><abbr title=\"Shared Clean + Shared Dirty\">RSS<br>COW<br>Est.</abbr>\n");
-  fprintf(file, "<th"TP" colspan=%d>%s\n", self->ntypes-1, "RSS / Class");
-
+  fprintf(file, "<th"TP" rowspan=2 colspan=%d>%s\n", VM_COLUMN_COUNT, "Virtual<br>Memory");
+  if( type == EMIT_TYPE_APPLICATION )
+  {
+    fprintf(file, "<th"TP" colspan=%d>%s\n", self->ntypes-1, "RSS / Class");
+    fprintf(file, "<th"TP" colspan=%d>%s\n", self->ntypes-1, "Size / Class");
+  }
   fprintf(file, "<tr>\n");
   fprintf(file, "<th"TP" colspan=2>%s\n", "Dirty");
   fprintf(file, "<th"TP" colspan=2>%s\n", "Clean");
-  for( int i = 1; i < self->ntypes; ++i )
+  if( type == EMIT_TYPE_APPLICATION )
   {
-    fprintf(file, "<th"TP" rowspan=2>%s\n", self->stype[i]);
+    for( int i = 1; i < self->ntypes; ++i )
+    {
+      fprintf(file, "<th"TP" rowspan=2>%s\n", self->stype[i]);
+    }
+    for( int i = 1; i < self->ntypes; ++i )
+    {
+      fprintf(file, "<th"TP" rowspan=2>%s\n", self->stype[i]);
+    }
   }
-
   fprintf(file, "<tr>\n");
   if( type == EMIT_TYPE_LIBRARY )
   {
@@ -3507,11 +3308,13 @@ analyze_emit_table_header(const analyze_t *self, FILE *file, enum emit_type type
 
 void
 analyze_emit_process_hierarchy(analyze_t *self, FILE *file, smapsproc_t *proc,
-                               const char *work)
+                               const char *work, int recursion_depth)
 {
   if( proc->smapsproc_children.size )
   {
-    fprintf(file, "<ul>\n");
+    fprintf(file, "<ul id='children_of_%d' %s>\n",
+	proc->smapsproc_AID,
+	recursion_depth == 1 ? "style='display:none;'" : "");
     for( int i = 0; i < proc->smapsproc_children.size; ++i )
     {
       smapsproc_t *sub = proc->smapsproc_children.data[i];
@@ -3522,7 +3325,16 @@ analyze_emit_process_hierarchy(analyze_t *self, FILE *file, smapsproc_t *proc,
               sub->smapsproc_pid.Name,
               sub->smapsproc_pid.Pid);
 
-      analyze_emit_process_hierarchy(self, file, sub, work);
+      if (recursion_depth == 0)
+      {
+	fprintf(file, "<span style=\"text-decoration: underline; "
+	    "cursor: pointer;\" "
+	    "onClick=\"toggleBlockText('children_of_%d', "
+	    "this, '(expand)','(collapse)');\">(expand)</span>\n",
+	    sub->smapsproc_AID);
+      }
+
+      analyze_emit_process_hierarchy(self, file, sub, work, recursion_depth+1);
     }
     fprintf(file, "</ul>\n");
   }
@@ -3562,6 +3374,7 @@ analyze_emit_library_table_cmp(const void *a1, const void *a2)
 static void
 analyze_emit_table(analyze_t *self, FILE *file, const char *work, enum emit_type type)
 {
+  int omitted_lines = 0;
   int items = 0;
   if( type == EMIT_TYPE_LIBRARY )
     items = self->npaths;
@@ -3581,41 +3394,49 @@ analyze_emit_table(analyze_t *self, FILE *file, const char *work, enum emit_type
     qsort(lut, items, sizeof *lut, analyze_emit_application_table_cmp);
 
   /* Sort initially by 7th column (PSS) in descending order */
-  fprintf(file, "<table border=1 class=\"tablesorter { sortlist: [[7,1]] }\">\n");
+  fprintf(file, "<table border=1 class=\"tablesorter { sortlist: [[7,0]] }\">\n");
   analyze_emit_table_header(self, file, type);
   fprintf(file, "<tbody>\n");
   for( int i = 0; i < items; ++i )
   {
     int a = lut[i];
+    const char *title = NULL;
+    const char *bg = ((i/3)&1) ? D1 : D2;
+    meminfo_t *s = analyze_mem(self, a, 0, type);
+
+    /* One-page mappings are not interesting, prune them from the Object Values
+     * table.
+     */
+    if (type == EMIT_TYPE_LIBRARY && s->Size <= 4)
+    {
+      ++omitted_lines;
+      continue;
+    }
+    else if (type == EMIT_TYPE_APPLICATION && meminfo_all_zeroes(s))
+    {
+      ++omitted_lines;
+      continue;
+    }
 
     fprintf(file, "<tr>\n");
     fprintf(file, "<th bgcolor=\"#bfffff\" align=left>");
+
     if( type == EMIT_TYPE_LIBRARY )
     {
+      title = path_basename(self->spath[a]);
       fprintf(file, "<a href=\"%s/lib%03d.html\">%s</a>\n",
-            work, a, path_basename(self->spath[a]));
+          work, a, abbr_title(title));
     }
     else if( type == EMIT_TYPE_APPLICATION )
     {
-      fprintf(file, "<a href=\"%s/app%03d.html\">", work, a);
-      if( strlen(self->sappl[a]) < 60 )
-      {
-        fprintf(file, "%s", self->sappl[a]);
-      }
-      else
-      {
-        fprintf(file, "<abbr title=\"%s\">", self->sappl[a]);
-        for( int j = 0; j < 60; ++j )
-        {
-          fprintf(file, "%c", self->sappl[a][j]);
-        }
-        fprintf(file, HTML_ELLIPSIS "</abbr>");
-      }
-      fprintf(file, "</a>\n");
+      title = self->sappl[a];
+      fprintf(file, "<a href=\"%s/app%03d.html\">%s</a>\n",
+          work, a, abbr_title(title));
     }
-
-    meminfo_t *s = analyze_mem(self, a, 0, type);
-    const char *bg = ((i/3)&1) ? D1 : D2;
+    else
+    {
+      abort();
+    }
 
     fprintf(file, "<td %s align=right>%s\n", bg, uval(s->Private_Dirty));
     fprintf(file, "<td %s align=right>%s\n", bg, uval(s->Shared_Dirty));
@@ -3625,17 +3446,45 @@ analyze_emit_table(analyze_t *self, FILE *file, const char *work, enum emit_type
     fprintf(file, "<td %s align=right>%s\n", bg, uval(s->Size));
     fprintf(file, "<td %s align=right>%s\n", bg, uval(s->Pss));
     fprintf(file, "<td %s align=right>%s\n", bg, uval(s->Swap));
-    fprintf(file, "<td %s align=right>%s\n", bg, uval(s->Referenced));
+    fprintf(file, "<td %s align=right>%s\n", bg, uval(s->Locked));
 
-    fprintf(file, "<td %s align=right>%s\n", bg, uval(meminfo_cowest(s)));
-
-    for( int t = 1; t < self->ntypes; ++t )
+    if (type == EMIT_TYPE_APPLICATION)
     {
-      meminfo_t *s = analyze_mem(self, a, t, type);
-      fprintf(file, "<td %s align=right>%s\n", bg, uval(meminfo_total(s)));
+      for( int t = 1; t < self->ntypes; ++t )
+      {
+	meminfo_t *s = analyze_mem(self, a, t, type);
+	fprintf(file, "<td %s align=right>%s\n", bg, uval(meminfo_total(s)));
+      }
+      for( int t = 1; t < self->ntypes; ++t )
+      {
+	meminfo_t *s = analyze_mem(self, a, t, type);
+	fprintf(file, "<td %s align=right>%s\n", bg, uval(s->Size));
+      }
     }
   }
   fprintf(file, "</table>\n");
+  if (omitted_lines)
+  {
+    if (type == EMIT_TYPE_LIBRARY)
+    {
+      fprintf(file,
+	"<b>Note:</b> removed %d entries from the table with <i>Size</i> of "
+	"at most 4 kilobytes.\n",
+	omitted_lines);
+    }
+    else if (type == EMIT_TYPE_APPLICATION)
+    {
+      fprintf(file,
+        "<b style='color:red'>Note:</b> removed %d applications from the table "
+        "that have all entries set to zero. This may indicate that the smaps "
+        "capture is incomplete.\n",
+	omitted_lines);
+    }
+    else
+    {
+      abort();
+    }
+  }
 }
 
 /* ------------------------------------------------------------------------- *
@@ -3643,40 +3492,137 @@ analyze_emit_table(analyze_t *self, FILE *file, const char *work, enum emit_type
  * ------------------------------------------------------------------------- */
 
 static int
+file_copy(const char *src, const char *dst)
+{
+  char buf[4096];
+  int ret;
+  FILE *fin, *fout;
+  size_t got, wrote;
+  fin = NULL;
+  fout = NULL;
+  ret = -1;
+  fin = fopen(src, "r");
+  if (!fin)
+  {
+    fprintf(stderr, "ERROR: unable to open '%s' for reading: %s\n",
+        src, strerror(errno));
+    goto out;
+  }
+  fout = fopen(dst, "w");
+  if (!fout)
+  {
+    fprintf(stderr, "ERROR: unable to open '%s' for writing: %s\n",
+        dst, strerror(errno));
+    goto out;
+  }
+  while (!feof(fin))
+  {
+    if (ferror(fin) || ferror(fout))
+      goto out;
+    got = fread(buf, 1, sizeof(buf), fin);
+    while (got)
+    {
+      wrote = fwrite(buf, 1, got, fout);
+      if (ferror(fout))
+        goto out;
+      got -= wrote;
+    }
+  }
+  ret = 0;
+out:
+  if (fin)
+    fclose(fin);
+  if (fout)
+  {
+    fclose(fout);
+    if (ret < 0)
+    {
+      unlink(dst);
+    }
+  }
+  return ret;
+}
+
+static int
+copy_to_workdir(const char *workdir, const char *fn)
+{
+  char src[512];
+  char dst[512];
+  snprintf(src, sizeof(src), "/usr/share/sp-smaps-visualize/%s", fn);
+  src[sizeof(src)-1] = 0;
+  snprintf(dst, sizeof(dst), "%s/%s", workdir, fn);
+  dst[sizeof(dst)-1] = 0;
+  return file_copy(src, dst);
+}
+
+static const char *const html_resources[] =
+{
+  "jquery.metadata.js",
+  "jquery.min.js",
+  "jquery.tablesorter.js",
+  "tablesorter.css",
+  "expander.js",
+  "asc.gif",
+  "desc.gif",
+  "bg.gif",
+};
+
+static int
 create_javascript_files(const char *workdir)
 {
-  FILE *fp;
-  char buf[512];
-  snprintf(buf, sizeof(buf), "%s/jquery.metadata.js", workdir);
-  buf[sizeof(buf)-1]=0;
-  fp = fopen(buf, "w");
-  if (!fp) {
-    perror("Unable to create jquery.metadata.js");
-    goto error;
+  size_t i;
+  int ret;
+  for (i=0; i < sizeof(html_resources)/sizeof(*html_resources); ++i)
+  {
+    ret = copy_to_workdir(workdir, html_resources[i]);
+    if (ret < 0)
+      goto out;
   }
-  fprintf(fp, "%s\n", jquery_metadata_js);
-  fclose(fp);
-  snprintf(buf, sizeof(buf), "%s/jquery.tablesorter.min.js", workdir);
-  buf[sizeof(buf)-1]=0;
-  fp = fopen(buf, "w");
-  if (!fp) {
-    perror("Unable to create jquery.tablesorter.min.js");
-    goto error;
+out:
+  return ret;
+}
+
+static void *
+_array_remove_elem(array_t *self, const void *elem)
+{
+  size_t i;
+  for (i=0; i < array_size(self); ++i)
+  {
+    if (array_get(self, i) == elem)
+    {
+      return array_rem(self, i);
+    }
   }
-  fprintf(fp, "%s\n", jquery_tablesorter_min_js);
-  fclose(fp);
-  snprintf(buf, sizeof(buf), "%s/tablesorter.css", workdir);
-  buf[sizeof(buf)-1]=0;
-  fp = fopen(buf, "w");
-  if (!fp) {
-    perror("Unable to create tablesorter.css");
-    goto error;
+  return NULL;
+}
+
+static void
+analyze_prune_kthreads(smapssnap_t *snap)
+{
+  size_t i, j;
+  smapsproc_t *root = &snap->smapssnap_rootproc;
+  for (i=0; i < root->smapsproc_children.size; ++i)
+  {
+    smapsproc_t *kthreadd = array_get(&root->smapsproc_children, i);
+    if (!kthreadd)
+      continue;
+    const char *subname = kthreadd->smapsproc_pid.Name;
+    if (subname && strcmp(subname, "kthreadd") == 0)
+    {
+      const size_t kthread_cnt = array_size(&kthreadd->smapsproc_children);
+      for (j=0; j < kthread_cnt; ++j)
+      {
+	const smapsproc_t *kthread = array_get(&kthreadd->smapsproc_children, j);
+	if (!kthread)
+	  continue;
+	_array_remove_elem(&snap->smapssnap_proclist, kthread);
+      }
+      array_clear(&kthreadd->smapsproc_children);
+      _array_remove_elem(&snap->smapssnap_proclist, kthreadd);
+      _array_remove_elem(&snap->smapssnap_rootproc.smapsproc_children, kthreadd);
+      break;
+    }
   }
-  fprintf(fp, "%s\n", tablesorter_css);
-  fclose(fp);
-  return 0;
-error:
-  return -1;
 }
 
 int
@@ -3717,21 +3663,7 @@ analyze_emit_main_page(analyze_t *self, smapssnap_t *snap, const char *path)
     perror(path); goto cleanup;
   }
 
-  /* - - - - - - - - - - - - - - - - - - - *
-   * html header
-   * - - - - - - - - - - - - - - - - - - - */
-
-  fprintf(file, "<html>\n");
-  fprintf(file, "<head>\n");
-  fprintf(file, "<title>%s</title>\n", smapssnap_get_source(snap));
-  fprintf(file, "<link rel=\"stylesheet\" type=\"text/css\" href=\"%s/tablesorter.css\" />", work);
-  fprintf(file, "</head>\n");
-  fprintf(file, "<body>\n");
-  fprintf(file, "<script src=\"" JQUERY_URL "\"></script>\n");
-  fprintf(file, "<script src=\"%s/jquery.metadata.js\"></script>\n", work);
-  fprintf(file, "<script src=\"%s/jquery.tablesorter.min.js\"></script>\n", work);
-  fprintf(file, "<script>$(document).ready(function() "
-                "{ $(\".tablesorter\").tablesorter(); } );</script>\n");
+  analyze_html_header(file, smapssnap_get_source(snap), work);
 
   /* - - - - - - - - - - - - - - - - - - - *
    * memory usage tables
@@ -3761,7 +3693,7 @@ analyze_emit_main_page(analyze_t *self, smapssnap_t *snap, const char *path)
    * - - - - - - - - - - - - - - - - - - - */
 
   fprintf(file, "<a name=\"process_hierarchy\"><h1>Process Hierarchy</h1></a>\n");
-  analyze_emit_process_hierarchy(self, file, &snap->smapssnap_rootproc, work);
+  analyze_emit_process_hierarchy(self, file, &snap->smapssnap_rootproc, work, 0);
 
   /* - - - - - - - - - - - - - - - - - - - *
    * application table
@@ -3881,7 +3813,7 @@ analyze_emit_appval_table(analyze_t *self, smapssnap_t *snap, FILE *file)
 
   fprintf(file, "generator = %s %s\n", TOOL_NAME, TOOL_VERS);
   fprintf(file, "\n");
-  fprintf(file, "name,pid,ppid,threads,pri,sha,cln,rss,size,cow,rss,pss,swap,referenced");
+  fprintf(file, "name,pid,ppid,threads,pri,sha,cln,rss,size,rss,pss,swap,referenced");
   for( int t = 1; t < self->ntypes; ++t )
   {
     fprintf(file, ",%s", self->stype[t]);
@@ -3905,7 +3837,6 @@ analyze_emit_appval_table(analyze_t *self, smapssnap_t *snap, FILE *file)
     fprintf(file, ",%u", s->Private_Clean + s->Shared_Clean);
     fprintf(file, ",%u", s->Rss);
     fprintf(file, ",%u", s->Size);
-    fprintf(file, ",%u", meminfo_cowest(s));
     fprintf(file, ",%u", s->Pss);
     fprintf(file, ",%u", s->Swap);
     fprintf(file, ",%u", s->Referenced);
@@ -4970,7 +4901,10 @@ smapsfilt_write_outputs(smapsfilt_t *self)
       char *dest = path_make_output(self->smapsfilt_output,
                                     snap->smapssnap_source,
                                     ".html");
-
+      /* SMAPS does not provide any data for kernel threads, so remove them to
+       * reduce dummy elements from the analysis report.
+       */
+      analyze_prune_kthreads(snap);
       analyze_t *az   = analyze_create();
       analyze_enumerate_data(az, snap);
       analyze_accumulate_data(az);
@@ -5038,3 +4972,5 @@ int main(int ac, char **av)
  * sp_smaps_diff
  *
  * - - - - - - - - - - - - - - - - - - - */
+
+/* vim: set sw=2 noet */

@@ -1,7 +1,7 @@
-/*
- * This file is part of sp-smaps
+/* This program dumps smaps data for all processes in the system.
+ * This file is part of sp-smaps.
  *
- * Copyright (C) 2004-2007 Nokia Corporation.
+ * Copyright (C) 2004-2007,2009,2011 Nokia Corporation.
  *
  * Contact: Eero Tamminen <eero.tamminen@nokia.com>
  *
@@ -22,7 +22,6 @@
  */
 
 /* ========================================================================= *
- * File: snapshot.c
  *
  * Author: Simo Piiroinen
  *
@@ -78,8 +77,6 @@
 #define TOOL_NAME "sp_smaps_snapshot"
 #include "release.h"
 
-#define PIDFILE "smaps"
-
 /* ------------------------------------------------------------------------- *
  * Runtime Manual
  * ------------------------------------------------------------------------- */
@@ -115,15 +112,11 @@ static const manual_t app_man[]=
   MAN_ADD("EXAMPLES",
           "% "TOOL_NAME" > after_boot.cap\n"
           "\n"
-          "  Writes output fairly similar to 'head -2000 /proc/[1-9]*/smaps' to\n"
-          "  logfile 'after_boot.cap'. (but with some additional data per process)\n"
-          "\n"
-          "% "TOOL_NAME" -fstatus -ostatus.log\n"
-          "\n"
-          "  Writes content of all proc/pid/status files to logfile status.log\n"
+          "  Collects /proc/*/smaps files from all running processes, and writes the\n"
+          "  result to 'after_boot.cap'.\n"
           )
   MAN_ADD("COPYRIGHT",
-          "Copyright (C) 2004-2007 Nokia Corporation.\n\n"
+          "Copyright (C) 2004-2007,2009,2011 Nokia Corporation.\n\n"
           "This is free software.  You may redistribute copies of it under the\n"
           "terms of the GNU General Public License v2 included with the software.\n"
           "There is NO WARRANTY, to the extent permitted by law.\n"
@@ -149,7 +142,6 @@ enum
   opt_quiet,
   opt_silent,
 
-  opt_input,
   opt_output,
   opt_realtime,
 };
@@ -184,10 +176,6 @@ static const option_t app_opt[] =
    * application options
    * - - - - - - - - - - - - - - - - - - - */
 
-  OPT_ADD(opt_input,
-          "f", "input", "<source path>",
-          "Input file to use from /proc/pid/ instead of "PIDFILE".\n" ),
-
   OPT_ADD(opt_output,
           "o", "output", "<destination path>",
           "Output file to use instead of stdout.\n" ),
@@ -195,18 +183,6 @@ static const option_t app_opt[] =
   OPT_ADD(opt_realtime,
           "r", "realtime", 0,
           "Use realtime priority (needs to be run as root for this)" ),
-
-// QUARANTINE   OPT_ADD(opt_no_header,
-// QUARANTINE           0, "no-header", 0,
-// QUARANTINE           "Omit header rows from Output.\n" ),
-// QUARANTINE
-// QUARANTINE   OPT_ADD(opt_no_labels,
-// QUARANTINE           0, "no-labels", 0,
-// QUARANTINE           "Omit label row from Output.\n" ),
-// QUARANTINE
-// QUARANTINE   OPT_ADD(opt_data_only,
-// QUARANTINE           0, "data-only", 0,
-// QUARANTINE           "Output only data rows.\n" ),
 
   OPT_END
 };
@@ -223,7 +199,6 @@ static const option_t app_opt[] =
                          * done in this sized blocks -> make it multiple of
                          * file system block size. */
 
-static const char *pidfile = PIDFILE;
 static const char *outfile = 0;
 
 /* ========================================================================= *
@@ -323,41 +298,6 @@ static void write_all_or_exit(int fd, const void *data, size_t size)
     pos += put;
   }
 }
-
-/* ------------------------------------------------------------------------- *
- * read_all_or_exit   --  read all or fail & exit
- * ------------------------------------------------------------------------- */
-
-// QUARANTINE static size_t read_all_or_exit(int fd, void *data, size_t size)
-// QUARANTINE {
-// QUARANTINE   char  *pos = data;
-// QUARANTINE   char  *end = pos + size;
-// QUARANTINE
-// QUARANTINE   while( pos < end )
-// QUARANTINE   {
-// QUARANTINE     int got = read(fd, pos, end-pos);
-// QUARANTINE
-// QUARANTINE     if( got == -1 )
-// QUARANTINE     {
-// QUARANTINE       switch( errno )
-// QUARANTINE       {
-// QUARANTINE       case EAGAIN:
-// QUARANTINE       case EINTR:
-// QUARANTINE   continue;
-// QUARANTINE
-// QUARANTINE       default:
-// QUARANTINE   msg_fatal("write error: %s\n", strerror(errno));
-// QUARANTINE       }
-// QUARANTINE     }
-// QUARANTINE     if( got == 0 )
-// QUARANTINE     {
-// QUARANTINE       break;
-// QUARANTINE     }
-// QUARANTINE     pos += got;
-// QUARANTINE   }
-// QUARANTINE
-// QUARANTINE   return pos - (char*)data;
-// QUARANTINE }
 
 /* ========================================================================= *
  * Buffered Output
@@ -460,8 +400,9 @@ static void output_fmt(const char *fmt, ...)
  * output_file  --  queue file contents to output
  * ------------------------------------------------------------------------- */
 
-static void output_file(const char *path)
+static size_t output_file(const char *path)
 {
+  size_t cnt = 0;
   char temp[RXBUFF];
   int file = open(path,O_RDONLY);
 
@@ -495,11 +436,13 @@ static void output_file(const char *path)
     }
 
     output_raw(temp, rc);
+    cnt += rc;
   }
 
   cleanup:
 
   if( file != -1 ) close(file);
+  return cnt;
 }
 
 /* ------------------------------------------------------------------------- *
@@ -633,8 +576,11 @@ typedef struct proc_pid_status_t {
   char *Pid;
   char *PPid;
   char *Threads;
+  char *FDSize;
+  char *VmPeak;
   char *VmSize;
   char *VmLck;
+  char *VmHWM;
   char *VmRSS;
   char *VmData;
   char *VmStk;
@@ -669,8 +615,11 @@ proc_pid_status_parse(proc_pid_status_t *self, char *data)
     X(Pid)
     X(PPid)
     X(Threads)
+    X(FDSize)
+    X(VmPeak)
     X(VmSize)
     X(VmLck)
+    X(VmHWM)
     X(VmRSS)
     X(VmData)
     X(VmStk)
@@ -694,10 +643,6 @@ static char *fix_command_name(char *name)
   {
     switch( *s )
     {
-// QUARANTINE     case '/':
-// QUARANTINE       d = name;
-// QUARANTINE       break;
-
     case 'a' ... 'z':
     case 'A' ... 'Z':
     case '0' ... '9':
@@ -717,116 +662,40 @@ static char *fix_command_name(char *name)
   return name;
 }
 
-/* ------------------------------------------------------------------------- *
- * get_command_name  --  try very hard to deduce command name for PID
- * ------------------------------------------------------------------------- */
-
-#if 0
-static char *get_command_name(const char *pid, char **pname, size_t *psize)
-{
-  char   path[256];
-  size_t size = *psize;
-  char  *name = *pname;
-
-  if( size < 4096 )
-  {
-    size = 4096;
-    name = realloc(name, size);
-  }
-
-  /* - - - - - - - - - - - - - - - - - - - *
-   * try /proc/pid/cmdline, this can be
-   * modified by application by argv
-   * hacking...
-   * - - - - - - - - - - - - - - - - - - - */
-
-  snprintf(path, sizeof path, "/proc/%s/cmdline", pid);
-  if( input_file(path, &name, &size) )
-  {
-    char *s = basename(name);
-    char *e = strchr(s, 0);
-    memmove(name, s, e+1-s);
-    //strcat(name, "--OK");
-  }
-
-  /* - - - - - - - - - - - - - - - - - - - *
-   * /proc/pid/exe -> link to executable
-   * - - - - - - - - - - - - - - - - - - - */
-
-  if( *name == 0 )
-  {
-    snprintf(path, sizeof path, "/proc/%s/exe", pid);
-    int n = readlink(path, name, size-1);
-    if( n > 0 )
-    {
-      name[n] = 0;
-      char *s = basename(name);
-      char *e = strchr(s, 0);
-      memmove(name, s, e+1-s);
-    }
-    else
-    {
-      *name = 0;
-    }
-  }
-
-  /* - - - - - - - - - - - - - - - - - - - *
-   * /proc/pid/status -> "(command name)"
-   * - - - - - - - - - - - - - - - - - - - */
-
-  if( *name == 0 )
-  {
-    snprintf(path, sizeof path, "/proc/%s/stat", pid);
-    input_file(path, &name, &size);
-
-    char *s = strchr(name, '(');
-    char *e = strrchr(name, ')');
-
-    if( s && e && s < e )
-    {
-      *e = 0;
-      memmove(name, s+1, e-s);
-    }
-    else
-    {
-      *name = 0;
-    }
-  }
-
-  /* - - - - - - - - - - - - - - - - - - - *
-   * /proc/pid/status -> "Name: command name\n"
-   * - - - - - - - - - - - - - - - - - - - */
-
-  if( *name == 0 )
-  {
-    snprintf(path, sizeof path, "/proc/%s/status", pid);
-    input_file(path, &name, &size);
-
-    char *s = strstr(name, "Name:");
-    if( s != 0 )
-    {
-      s += 5;
-      s += strspn(s, "\t ");
-      int n = strcspn(s, "\r\n");
-      memmove(name, s, n);
-      name[n] = 0;
-    }
-    else
-    {
-      *name = 0;
-    }
-  }
-
-  *pname = name;
-  *psize = size;
-
-  return fix_command_name(name);
-}
-#endif
-
 /* ========================================================================= *
  * Snapshot from /proc/pid/smaps information
  * ========================================================================= */
+
+static char *kthreadd_pid;
+
+static int is_kthreadd(const proc_pid_status_t *status)
+{
+  if (status->Name == NULL)
+    return 0;
+  if (status->PPid == NULL)
+    return 0;
+  return strcmp(status->Name, "kthreadd") == 0
+         && strcmp(status->PPid, "0") == 0;
+}
+
+static int is_kernel_thread(const proc_pid_status_t *status)
+{
+  if (kthreadd_pid == NULL)
+    return 0;
+  if (status->PPid == NULL)
+    return 0;
+  return strcmp(status->PPid, kthreadd_pid) == 0;
+}
+
+static void check_kthreadd(const proc_pid_status_t *status)
+{
+  if (kthreadd_pid)
+    return;
+  if (status->Pid == NULL)
+    return;
+  if (is_kthreadd(status))
+    kthreadd_pid = strdup(status->Pid);
+}
 
 /* ------------------------------------------------------------------------- *
  * snapshot_all  -- retrieve snapshot of information for one process
@@ -840,6 +709,7 @@ static int snapshot_all(void)
   size_t  cmdline_size = 0;
   char    exe[256];
   proc_pid_status_t status;
+  size_t smaps_bytes;
 
   static const char root[] = "/proc";
 
@@ -884,12 +754,14 @@ static int snapshot_all(void)
       input_file(path, &status_text, &status_size);
       proc_pid_status_parse(&status, status_text);
 
+      check_kthreadd(&status);
+
       if( cnt++ != 0 )
       {
         output_raw("\n",1);
       }
 
-      snprintf(path, sizeof path, "%s/%s/%s", root, de->d_name,pidfile);
+      snprintf(path, sizeof path, "%s/%s/smaps", root, de->d_name);
       output_fmt("==> %s <==\n", path);
 
       /* Avoid feeding basename cases that might confuse it, such as
@@ -930,8 +802,11 @@ static int snapshot_all(void)
       X(Pid)
       X(PPid)
       X(Threads)
+      X(FDSize)
+      X(VmPeak)
       X(VmSize)
       X(VmLck)
+      X(VmHWM)
       X(VmRSS)
       X(VmData)
       X(VmStk)
@@ -940,7 +815,13 @@ static int snapshot_all(void)
       X(VmPTE)
 #undef X
 
-      output_file(path);
+      smaps_bytes = output_file(path);
+      if (smaps_bytes == 0
+          && !is_kthreadd(&status)
+          && !is_kernel_thread(&status))
+      {
+        msg_warning("`%s' is empty for process named '%s'!\n", path, name);
+      }
     }
   }
 
@@ -995,10 +876,6 @@ int main(int ac, char **av)
       break;
     case opt_silent:
       msg_setsilent();
-      break;
-
-    case opt_input:
-      pidfile = par;
       break;
 
     case opt_output:

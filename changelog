@@ -1,3 +1,26 @@
+sp-smaps (0.4.0) - 2011-06-07
+  * sp_smaps_snapshot changes:
+    * remove parameter -f, allow only to read /proc/*/smaps.
+    * give a warning for empty /proc/pid/smaps files.
+  * sp_smaps_analyze HTML report updates:
+    * Include local copies of all javascript files.
+    * Remove the Referenced columns from non-summary tables.
+    * Remove kernel threads from the report (as the smaps snapshot does not
+      contain any real data for them).
+    * Allow dynamic expand and collapse of the process hierarchy.
+    * Truncate long mapping, process and library names.
+    * Remove `RSS / Class' columns from the Object Values table.
+    * Remove one-page mappings from the `Object Values' table.
+    * Remove all-zero entries from the `Application Values' table. Also give a
+      warning when this happens as it most likely indicates that the smaps
+      data capture is incomplete.
+    * Add new SMAPS based columns `Anonymous' and `Locked'.
+    * The XREF tables are now sortable on-the-fly; initially by PSS.
+    * Remove the dubious `COW' estimate.
+    * Add new columns `Size / Class' for the `Application Values' table.
+    * Add new columns `Resident Peak' and `Size Peak' to application summary
+      tables.
+
 sp-smaps (0.3.0) - 2011-02-07
 
   * New post processing tool `sp_smaps_sorted_totals', that shows sorted
