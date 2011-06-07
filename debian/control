@@ -10,8 +10,9 @@ Architecture: any
 Depends: ${shlibs:Depends}
 Suggests: 
 Description: /proc/pid/smaps snapshot generator
- Utilities for taking snapshots of /proc/pid/smaps memory information.
- . 
+ Contains the `sp_smaps_snapshot' utility for snapshotting system state, that
+ collects /proc/pid/smaps files for all processes. The snapshot file can be
+ later analyzed for example with the tools from the sp-smaps-visualize package.
 
 Package: sp-smaps-visualize
 Architecture: any
