@@ -196,18 +196,6 @@ static const option_t app_opt[] =
           "r", "realtime", 0,
           "Use realtime priority (needs to be run as root for this)" ),
 
-// QUARANTINE   OPT_ADD(opt_no_header,
-// QUARANTINE           0, "no-header", 0,
-// QUARANTINE           "Omit header rows from Output.\n" ),
-// QUARANTINE
-// QUARANTINE   OPT_ADD(opt_no_labels,
-// QUARANTINE           0, "no-labels", 0,
-// QUARANTINE           "Omit label row from Output.\n" ),
-// QUARANTINE
-// QUARANTINE   OPT_ADD(opt_data_only,
-// QUARANTINE           0, "data-only", 0,
-// QUARANTINE           "Output only data rows.\n" ),
-
   OPT_END
 };
 
@@ -323,41 +311,6 @@ static void write_all_or_exit(int fd, const void *data, size_t size)
     pos += put;
   }
 }
-
-/* ------------------------------------------------------------------------- *
- * read_all_or_exit   --  read all or fail & exit
- * ------------------------------------------------------------------------- */
-
-// QUARANTINE static size_t read_all_or_exit(int fd, void *data, size_t size)
-// QUARANTINE {
-// QUARANTINE   char  *pos = data;
-// QUARANTINE   char  *end = pos + size;
-// QUARANTINE
-// QUARANTINE   while( pos < end )
-// QUARANTINE   {
-// QUARANTINE     int got = read(fd, pos, end-pos);
-// QUARANTINE
-// QUARANTINE     if( got == -1 )
-// QUARANTINE     {
-// QUARANTINE       switch( errno )
-// QUARANTINE       {
-// QUARANTINE       case EAGAIN:
-// QUARANTINE       case EINTR:
-// QUARANTINE   continue;
-// QUARANTINE
-// QUARANTINE       default:
-// QUARANTINE   msg_fatal("write error: %s\n", strerror(errno));
-// QUARANTINE       }
-// QUARANTINE     }
-// QUARANTINE     if( got == 0 )
-// QUARANTINE     {
-// QUARANTINE       break;
-// QUARANTINE     }
-// QUARANTINE     pos += got;
-// QUARANTINE   }
-// QUARANTINE
-// QUARANTINE   return pos - (char*)data;
-// QUARANTINE }
 
 /* ========================================================================= *
  * Buffered Output
@@ -700,10 +653,6 @@ static char *fix_command_name(char *name)
   {
     switch( *s )
     {
-// QUARANTINE     case '/':
-// QUARANTINE       d = name;
-// QUARANTINE       break;
-
     case 'a' ... 'z':
     case 'A' ... 'Z':
     case '0' ... '9':
@@ -722,113 +671,6 @@ static char *fix_command_name(char *name)
   *d = 0;
   return name;
 }
-
-/* ------------------------------------------------------------------------- *
- * get_command_name  --  try very hard to deduce command name for PID
- * ------------------------------------------------------------------------- */
-
-#if 0
-static char *get_command_name(const char *pid, char **pname, size_t *psize)
-{
-  char   path[256];
-  size_t size = *psize;
-  char  *name = *pname;
-
-  if( size < 4096 )
-  {
-    size = 4096;
-    name = realloc(name, size);
-  }
-
-  /* - - - - - - - - - - - - - - - - - - - *
-   * try /proc/pid/cmdline, this can be
-   * modified by application by argv
-   * hacking...
-   * - - - - - - - - - - - - - - - - - - - */
-
-  snprintf(path, sizeof path, "/proc/%s/cmdline", pid);
-  if( input_file(path, &name, &size) )
-  {
-    char *s = basename(name);
-    char *e = strchr(s, 0);
-    memmove(name, s, e+1-s);
-    //strcat(name, "--OK");
-  }
-
-  /* - - - - - - - - - - - - - - - - - - - *
-   * /proc/pid/exe -> link to executable
-   * - - - - - - - - - - - - - - - - - - - */
-
-  if( *name == 0 )
-  {
-    snprintf(path, sizeof path, "/proc/%s/exe", pid);
-    int n = readlink(path, name, size-1);
-    if( n > 0 )
-    {
-      name[n] = 0;
-      char *s = basename(name);
-      char *e = strchr(s, 0);
-      memmove(name, s, e+1-s);
-    }
-    else
-    {
-      *name = 0;
-    }
-  }
-
-  /* - - - - - - - - - - - - - - - - - - - *
-   * /proc/pid/status -> "(command name)"
-   * - - - - - - - - - - - - - - - - - - - */
-
-  if( *name == 0 )
-  {
-    snprintf(path, sizeof path, "/proc/%s/stat", pid);
-    input_file(path, &name, &size);
-
-    char *s = strchr(name, '(');
-    char *e = strrchr(name, ')');
-
-    if( s && e && s < e )
-    {
-      *e = 0;
-      memmove(name, s+1, e-s);
-    }
-    else
-    {
-      *name = 0;
-    }
-  }
-
-  /* - - - - - - - - - - - - - - - - - - - *
-   * /proc/pid/status -> "Name: command name\n"
-   * - - - - - - - - - - - - - - - - - - - */
-
-  if( *name == 0 )
-  {
-    snprintf(path, sizeof path, "/proc/%s/status", pid);
-    input_file(path, &name, &size);
-
-    char *s = strstr(name, "Name:");
-    if( s != 0 )
-    {
-      s += 5;
-      s += strspn(s, "\t ");
-      int n = strcspn(s, "\r\n");
-      memmove(name, s, n);
-      name[n] = 0;
-    }
-    else
-    {
-      *name = 0;
-    }
-  }
-
-  *pname = name;
-  *psize = size;
-
-  return fix_command_name(name);
-}
-#endif
 
 /* ========================================================================= *
  * Snapshot from /proc/pid/smaps information
