@@ -3374,7 +3374,7 @@ analyze_emit_library_table_cmp(const void *a1, const void *a2)
 static void
 analyze_emit_table(analyze_t *self, FILE *file, const char *work, enum emit_type type)
 {
-  int omitted_libs = 0;
+  int omitted_lines = 0;
   int items = 0;
   if( type == EMIT_TYPE_LIBRARY )
     items = self->npaths;
@@ -3409,11 +3409,12 @@ analyze_emit_table(analyze_t *self, FILE *file, const char *work, enum emit_type
      */
     if (type == EMIT_TYPE_LIBRARY && s->Size <= 4)
     {
-      ++omitted_libs;
+      ++omitted_lines;
       continue;
     }
     else if (type == EMIT_TYPE_APPLICATION && meminfo_all_zeroes(s))
     {
+      ++omitted_lines;
       continue;
     }
 
@@ -3462,12 +3463,27 @@ analyze_emit_table(analyze_t *self, FILE *file, const char *work, enum emit_type
     }
   }
   fprintf(file, "</table>\n");
-  if (omitted_libs)
+  if (omitted_lines)
   {
-    fprintf(file,
+    if (type == EMIT_TYPE_LIBRARY)
+    {
+      fprintf(file,
 	"<b>Note:</b> removed %d entries from the table with <i>Size</i> of "
 	"at most 4 kilobytes.\n",
-	omitted_libs);
+	omitted_lines);
+    }
+    else if (type == EMIT_TYPE_APPLICATION)
+    {
+      fprintf(file,
+        "<b style='color:red'>Note:</b> removed %d applications from the table "
+        "that have all entries set to zero. This may indicate that the smaps "
+        "capture is incomplete.\n",
+	omitted_lines);
+    }
+    else
+    {
+      abort();
+    }
   }
 }
 
