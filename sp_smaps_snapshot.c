@@ -633,8 +633,11 @@ typedef struct proc_pid_status_t {
   char *Pid;
   char *PPid;
   char *Threads;
+  char *FDSize;
+  char *VmPeak;
   char *VmSize;
   char *VmLck;
+  char *VmHWM;
   char *VmRSS;
   char *VmData;
   char *VmStk;
@@ -669,8 +672,11 @@ proc_pid_status_parse(proc_pid_status_t *self, char *data)
     X(Pid)
     X(PPid)
     X(Threads)
+    X(FDSize)
+    X(VmPeak)
     X(VmSize)
     X(VmLck)
+    X(VmHWM)
     X(VmRSS)
     X(VmData)
     X(VmStk)
@@ -930,8 +936,11 @@ static int snapshot_all(void)
       X(Pid)
       X(PPid)
       X(Threads)
+      X(FDSize)
+      X(VmPeak)
       X(VmSize)
       X(VmLck)
+      X(VmHWM)
       X(VmRSS)
       X(VmData)
       X(VmStk)
