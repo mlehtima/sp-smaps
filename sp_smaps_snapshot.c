@@ -1,5 +1,5 @@
-/*
- * This file is part of sp-smaps
+/* This program dumps smaps data for all processes in the system.
+ * This file is part of sp-smaps.
  *
  * Copyright (C) 2004-2007,2009,2011 Nokia Corporation.
  *
@@ -22,7 +22,6 @@
  */
 
 /* ========================================================================= *
- * File: snapshot.c
  *
  * Author: Simo Piiroinen
  *
@@ -117,7 +116,7 @@ static const manual_t app_man[]=
           "  result to 'after_boot.cap'.\n"
           )
   MAN_ADD("COPYRIGHT",
-          "Copyright (C) 2004-2007 Nokia Corporation.\n\n"
+          "Copyright (C) 2004-2007,2009,2011 Nokia Corporation.\n\n"
           "This is free software.  You may redistribute copies of it under the\n"
           "terms of the GNU General Public License v2 included with the software.\n"
           "There is NO WARRANTY, to the extent permitted by law.\n"
