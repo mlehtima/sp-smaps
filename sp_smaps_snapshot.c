@@ -666,6 +666,37 @@ static char *fix_command_name(char *name)
  * Snapshot from /proc/pid/smaps information
  * ========================================================================= */
 
+static char *kthreadd_pid;
+
+static int is_kthreadd(const proc_pid_status_t *status)
+{
+  if (status->Name == NULL)
+    return 0;
+  if (status->PPid == NULL)
+    return 0;
+  return strcmp(status->Name, "kthreadd") == 0
+         && strcmp(status->PPid, "0") == 0;
+}
+
+static int is_kernel_thread(const proc_pid_status_t *status)
+{
+  if (kthreadd_pid == NULL)
+    return 0;
+  if (status->PPid == NULL)
+    return 0;
+  return strcmp(status->PPid, kthreadd_pid) == 0;
+}
+
+static void check_kthreadd(const proc_pid_status_t *status)
+{
+  if (kthreadd_pid)
+    return;
+  if (status->Pid == NULL)
+    return;
+  if (is_kthreadd(status))
+    kthreadd_pid = strdup(status->Pid);
+}
+
 /* ------------------------------------------------------------------------- *
  * snapshot_all  -- retrieve snapshot of information for one process
  * ------------------------------------------------------------------------- */
@@ -678,6 +709,7 @@ static int snapshot_all(void)
   size_t  cmdline_size = 0;
   char    exe[256];
   proc_pid_status_t status;
+  size_t smaps_bytes;
 
   static const char root[] = "/proc";
 
@@ -721,6 +753,8 @@ static int snapshot_all(void)
       snprintf(path, sizeof path, "%s/%s/%s", root, de->d_name,"status");
       input_file(path, &status_text, &status_size);
       proc_pid_status_parse(&status, status_text);
+
+      check_kthreadd(&status);
 
       if( cnt++ != 0 )
       {
@@ -781,7 +815,13 @@ static int snapshot_all(void)
       X(VmPTE)
 #undef X
 
-      output_file(path);
+      smaps_bytes = output_file(path);
+      if (smaps_bytes == 0
+          && !is_kthreadd(&status)
+          && !is_kernel_thread(&status))
+      {
+        msg_warning("`%s' is empty for process named '%s'!\n", path, name);
+      }
     }
   }
 
