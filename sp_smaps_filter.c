@@ -80,7 +80,6 @@
 #define TOOL_NAME "sp_smaps_filter"
 #include "release.h"
 
-#define HTML_DOWN_ARROW "&#x25BE;"
 #define HTML_ELLIPSIS   "&#0133;"
 #define TITLE_MAX_LEN   60
 
@@ -271,6 +270,23 @@ static const option_t app_opt[] =
 };
 
 #include <argz.h>
+
+static const char *abbr_title(const char *title)
+{
+  static char buf[512];
+  size_t tlen = strlen(title);
+  if( tlen < TITLE_MAX_LEN )
+  {
+    return title;
+  }
+  else
+  {
+    snprintf(buf, sizeof(buf), "<abbr title=\"%s\">%s%s</abbr>",
+        title, HTML_ELLIPSIS, &title[tlen-TITLE_MAX_LEN]);
+    buf[sizeof(buf)-1] = '\0';
+    return buf;
+  }
+}
 
 typedef struct unknown_t unknown_t;
 
@@ -628,6 +644,8 @@ struct meminfo_t
   unsigned Pss;
   unsigned Swap;
   unsigned Referenced;
+  unsigned Anonymous;
+  unsigned Locked;
 };
 
 void       meminfo_ctor              (meminfo_t *self);
@@ -651,13 +669,6 @@ meminfo_total(const meminfo_t *self)
           self->Shared_Dirty  +
           self->Private_Clean +
           self->Private_Dirty);
-}
-
-INLINE unsigned
-meminfo_cowest(const meminfo_t *self)
-{
-   // TODO: COW estimate, is this what is wanted?
-  return (self->Shared_Clean + self->Shared_Dirty);
 }
 
 /* ------------------------------------------------------------------------- *
@@ -693,8 +704,10 @@ struct pidinfo_t
   int      Pid;
   int      PPid;
   int      Threads;
+  unsigned VmPeak;
   unsigned VmSize;
   unsigned VmLck;
+  unsigned VmHWM;
   unsigned VmRSS;
   unsigned VmData;
   unsigned VmStk;
@@ -842,7 +855,6 @@ void       analyze_delete                (analyze_t *self);
 void       analyze_delete_cb             (void *self);
 void       analyze_enumerate_data        (analyze_t *self, smapssnap_t *snap);
 void       analyze_accumulate_data       (analyze_t *self);
-void       analyze_emit_page_table       (analyze_t *self, FILE *file, const meminfo_t *mtab);
 void       analyze_get_apprange          (analyze_t *self, int lo, int hi, int *plo, int *phi, int aid);
 void       analyze_get_librange          (analyze_t *self, int lo, int hi, int *plo, int *phi, int lid);
 int        analyze_emit_lib_html         (analyze_t *self, smapssnap_t *snap, const char *work);
@@ -951,6 +963,19 @@ meminfo_parse(meminfo_t *self, char *line)
   {
     self->Referenced   = strtoul(val, 0, 10);
   }
+  else if( !strcmp(key, "Anonymous") )
+  {
+    self->Anonymous = strtoul(val, 0, 10);
+  }
+  else if( !strcmp(key, "Locked") )
+  {
+    self->Locked = strtoul(val, 0, 10);
+  }
+  else if( !strcmp(key, "KernelPageSize")
+        || !strcmp(key, "MMUPageSize")
+      )
+  {
+  }
   else
   {
     static unknown_t unkn = UNKNOWN_INIT;
@@ -973,6 +998,8 @@ meminfo_all_zeroes(const meminfo_t *self)
     && self->Pss == 0
     && self->Swap == 0
     && self->Referenced == 0
+    && self->Anonymous == 0
+    && self->Locked == 0
     ;
 }
 
@@ -992,6 +1019,8 @@ meminfo_accumulate_appdata(meminfo_t *self, const meminfo_t *that)
   pusum(&self->Pss,           that->Pss);
   pusum(&self->Swap,          that->Swap);
   pusum(&self->Referenced,    that->Referenced);
+  pusum(&self->Anonymous,     that->Anonymous);
+  pusum(&self->Locked,        that->Locked);
 }
 
 /* ------------------------------------------------------------------------- *
@@ -1010,6 +1039,8 @@ meminfo_accumulate_libdata(meminfo_t *self, const meminfo_t *that)
   pusum(&self->Pss,           that->Pss);
   pumax(&self->Swap,          that->Swap);
   pumax(&self->Referenced,    that->Referenced);
+  pusum(&self->Anonymous,     that->Anonymous);
+  pusum(&self->Locked,        that->Locked);
 }
 
 /* ------------------------------------------------------------------------- *
@@ -1028,6 +1059,8 @@ meminfo_accumulate_maxdata(meminfo_t *self, const meminfo_t *that)
   pumax(&self->Pss,           that->Pss);
   pumax(&self->Swap,          that->Swap);
   pumax(&self->Referenced,    that->Referenced);
+  pumax(&self->Anonymous,     that->Anonymous);
+  pumax(&self->Locked,        that->Locked);
 }
 
 /* ------------------------------------------------------------------------- *
@@ -1147,17 +1180,8 @@ mapinfo_delete_cb(void *self)
 void
 pidinfo_ctor(pidinfo_t *self)
 {
-  self->Name    = strdup("<noname>");
-  self->PPid    = 0;
-  self->Threads = 0;
-  self->VmSize  = 0;
-  self->VmLck   = 0;
-  self->VmRSS   = 0;
-  self->VmData  = 0;
-  self->VmStk   = 0;
-  self->VmExe   = 0;
-  self->VmLib   = 0;
-  self->VmPTE   = 0;
+  memset(self, 0, sizeof(*self));
+  self->Name = strdup("<noname>");
 }
 
 /* ------------------------------------------------------------------------- *
@@ -1197,6 +1221,10 @@ pidinfo_parse(pidinfo_t *self, char *line)
   {
     self->Threads       = strtol(val, 0, 10);
   }
+  else if( !strcmp(key, "VmPeak") )
+  {
+    self->VmPeak        = strtoul(val, 0, 10);
+  }
   else if( !strcmp(key, "VmSize") )
   {
     self->VmSize        = strtoul(val, 0, 10);
@@ -1204,6 +1232,10 @@ pidinfo_parse(pidinfo_t *self, char *line)
   else if( !strcmp(key, "VmLck") )
   {
     self->VmLck = strtoul(val, 0, 10);
+  }
+  else if( !strcmp(key, "VmHWM") )
+  {
+    self->VmHWM = strtoul(val, 0, 10);
   }
   else if( !strcmp(key, "VmRSS") )
   {
@@ -1236,8 +1268,6 @@ pidinfo_parse(pidinfo_t *self, char *line)
         || !strcmp(key, "Gid")
         || !strcmp(key, "FDSize")
         || !strcmp(key, "Groups")
-        || !strcmp(key, "VmPeak")
-        || !strcmp(key, "VmHWM")
         || !strcmp(key, "SigQ")
         || !strcmp(key, "SigPnd")
         || !strcmp(key, "ShdPnd")
@@ -1417,8 +1447,10 @@ smapsproc_are_same(smapsproc_t *self, smapsproc_t *that)
 
 #if 01
 # define cp(v) if( self->smapsproc_pid.v != that->smapsproc_pid.v ) return 0;
+  cp(VmPeak)
   cp(VmSize)
   cp(VmLck)
+  cp(VmHWM)
   cp(VmRSS)
   cp(VmData)
   cp(VmStk)
@@ -1918,11 +1950,22 @@ smapssnap_save_cap(smapssnap_t *self, const char *path)
     Pi(PPid);
     Pi(Threads);
 
-    if( pi->VmSize || pi->VmLck || pi->VmRSS || pi->VmData ||
-        pi->VmStk  || pi->VmExe || pi->VmLib  || pi->VmPTE )
+    if( pi->VmPeak
+     || pi->VmSize
+     || pi->VmLck
+     || pi->VmHWM
+     || pi->VmRSS
+     || pi->VmData
+     || pi->VmStk
+     || pi->VmExe
+     || pi->VmLib
+     || pi->VmPTE
+     )
     {
+      Pu(VmPeak);
       Pu(VmSize);
       Pu(VmLck);
+      Pu(VmHWM);
       Pu(VmRSS);
       Pu(VmData);
       Pu(VmStk);
@@ -1956,6 +1999,8 @@ smapssnap_save_cap(smapssnap_t *self, const char *path)
       Pu(Pss);
       Pu(Swap);
       Pu(Referenced);
+      Pu(Anonymous);
+      Pu(Locked);
 
 #undef Pu
     }
@@ -2010,8 +2055,8 @@ smapssnap_save_csv(smapssnap_t *self, const char *path)
           "name,pid,ppid,threads,"
           "head,tail,prot,offs,node,flag,path,"
           "size,rss,shacln,shadty,pricln,pridty,"
-          "pss,swap,referenced,"
-          "pri,sha,cln,cow\n");
+          "pss,swap,referenced,anonymous,locked,"
+          "pri,sha,cln\n");
 
   /* - - - - - - - - - - - - - - - - - - - *
    * output csv table
@@ -2039,7 +2084,7 @@ smapssnap_save_csv(smapssnap_t *self, const char *path)
               map->offs, map->node, map->flgs,
               map->path);
 
-      fprintf(file, "%u,%u,%u,%u,%u,%u,%u,%u,%u,",
+      fprintf(file, "%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u",
               mem->Size,
               mem->Rss,
               mem->Shared_Clean,
@@ -2048,13 +2093,14 @@ smapssnap_save_csv(smapssnap_t *self, const char *path)
               mem->Private_Dirty,
               mem->Pss,
               mem->Swap,
-              mem->Referenced);
+              mem->Referenced,
+              mem->Anonymous,
+              mem->Locked);
 
-      fprintf(file, "%u,%u,%u,%u\n",
+      fprintf(file, "%u,%u,%u\n",
               mem->Private_Dirty,
               mem->Shared_Dirty,
-              mem->Private_Clean + mem->Shared_Clean,
-              0u);
+              mem->Private_Clean + mem->Shared_Clean);
     }
   }
 
@@ -2665,6 +2711,33 @@ analyze_accumulate_data(analyze_t *self)
   }
 }
 
+static void
+analyze_html_header(FILE *file, const char *title, const char *work)
+{
+  fprintf(file, "<html>\n");
+  fprintf(file, "<head>\n");
+  fprintf(file, "<title>%s</title>\n", title);
+  fprintf(file, "<link rel=\"stylesheet\" type=\"text/css\" href=\"%s/tablesorter.css\" />\n", work);
+  fprintf(file, "<style type='text/css'>\n");
+  fprintf(file, "  table.tablesorter thead tr .header"
+                "  { background-image: url(%s/bg.gif);"
+                "    background-repeat: no-repeat;"
+                "    background-position: center right; }\n", work);
+  fprintf(file, "  table.tablesorter thead tr .headerSortUp"
+                "  { background-image: url(%s/asc.gif); }\n", work);
+  fprintf(file, "  table.tablesorter thead tr .headerSortDown"
+                "  { background-image: url(%s/desc.gif); }\n", work);
+  fprintf(file, "</style>\n");
+  fprintf(file, "</head>\n");
+  fprintf(file, "<body>\n");
+  fprintf(file, "<script src=\"%s/jquery.min.js\"></script>\n", work);
+  fprintf(file, "<script src=\"%s/jquery.metadata.js\"></script>\n", work);
+  fprintf(file, "<script src=\"%s/jquery.tablesorter.js\"></script>\n", work);
+  fprintf(file, "<script src=\"%s/expander.js\"></script>\n", work);
+  fprintf(file, "<script>$(document).ready(function() "
+                "{ $(\".tablesorter\").tablesorter(); } );</script>\n");
+}
+
 #define TP " bgcolor=\"#ffffbf\" "
 #define LT " bgcolor=\"#bfffff\" "
 #define D1 " bgcolor=\"#f4f4f4\" "
@@ -2680,8 +2753,8 @@ static const char *const emit_type_titles[] = {
  * analyze_emit_page_table
  * ------------------------------------------------------------------------- */
 
-void
-analyze_emit_page_table(analyze_t *self, FILE *file, const meminfo_t *mtab)
+static void
+analyze_emit_page_table(analyze_t *self, FILE *file, const meminfo_t *mtab, const pidinfo_t *pidinfo)
 {
   fprintf(file, "<table border=1>\n");
   fprintf(file, "<tr>\n");
@@ -2689,11 +2762,22 @@ analyze_emit_page_table(analyze_t *self, FILE *file, const meminfo_t *mtab)
   fprintf(file, "<th"TP"colspan=2>%s\n", "Dirty");
   fprintf(file, "<th"TP"colspan=2>%s\n", "Clean");
   fprintf(file, "<th"TP"rowspan=2>%s\n", "Resident");
+  if (pidinfo)
+  {
+    fprintf(file, "<th"TP"rowspan=2>%s\n",
+        "<abbr title='VmHWM field of /proc/pid/status'>Resident Peak</abbr>");
+  }
   fprintf(file, "<th"TP"rowspan=2>%s\n", "Size");
-  fprintf(file, "<th"TP"rowspan=2>%s\n", "<abbr title=\"Shared Clean + Shared Dirty\">COW</abbr>");
+  if (pidinfo)
+  {
+    fprintf(file, "<th"TP"rowspan=2>%s\n",
+        "<abbr title='VmPeak field of /proc/pid/status'>Size Peak</abbr>");
+  }
   fprintf(file, "<th"TP"rowspan=2>%s\n", "Pss");
   fprintf(file, "<th"TP"rowspan=2>%s\n", "Swap");
   fprintf(file, "<th"TP"rowspan=2>%s\n", "Referenced");
+  fprintf(file, "<th"TP"rowspan=2>%s\n", "Anonymous");
+  fprintf(file, "<th"TP"rowspan=2>%s\n", "Locked");
 
   fprintf(file, "<tr>\n");
   fprintf(file, "<th"TP">%s\n", "Private");
@@ -2713,12 +2797,22 @@ analyze_emit_page_table(analyze_t *self, FILE *file, const meminfo_t *mtab)
     fprintf(file, "<td %s align=right>%s\n", bg, uval(m->Private_Clean));
     fprintf(file, "<td %s align=right>%s\n", bg, uval(m->Shared_Clean));
     fprintf(file, "<td %s align=right>%s\n", bg, uval(m->Rss));
+    if (pidinfo)
+    {
+      fprintf(file, "<td %s align=right>%s\n", bg,
+          uval(t==0 ? pidinfo->VmHWM : 0));
+    }
     fprintf(file, "<td %s align=right>%s\n", bg, uval(m->Size));
-    fprintf(file, "<td %s align=right>%s\n", bg, uval(meminfo_cowest(m)));
+    if (pidinfo)
+    {
+      fprintf(file, "<td %s align=right>%s\n", bg,
+          uval(t==0 ? pidinfo->VmPeak : 0));
+    }
     fprintf(file, "<td %s align=right>%s\n", bg, uval(m->Pss));
     fprintf(file, "<td %s align=right>%s\n", bg, uval(m->Swap));
     fprintf(file, "<td %s align=right>%s\n", bg, uval(m->Referenced));
-
+    fprintf(file, "<td %s align=right>%s\n", bg, uval(m->Anonymous));
+    fprintf(file, "<td %s align=right>%s\n", bg, uval(m->Locked));
   }
   fprintf(file, "</table>\n");
 }
@@ -2730,6 +2824,7 @@ analyze_emit_page_table(analyze_t *self, FILE *file, const meminfo_t *mtab)
 static void
 analyze_emit_xref_header(const analyze_t *self, FILE *file, enum emit_type type)
 {
+  fprintf(file, "<thead>\n");
   fprintf(file, "<tr>\n");
   fprintf(file, "<th"TP">%s\n", emit_type_titles[type]);
   fprintf(file, "<th"TP">%s\n", "Type");
@@ -2740,8 +2835,10 @@ analyze_emit_xref_header(const analyze_t *self, FILE *file, enum emit_type type)
   fprintf(file, "<th"TP">%s\n", "Dirty<br>Shared");
   fprintf(file, "<th"TP">%s\n", "Clean<br>Private");
   fprintf(file, "<th"TP">%s\n", "Clean<br>Shared");
-  fprintf(file, "<th"TP">%s %s\n", "Pss", HTML_DOWN_ARROW);
+  fprintf(file, "<th"TP">%s\n", "Pss");
   fprintf(file, "<th"TP">%s\n", "Swap");
+  fprintf(file, "<th"TP">%s\n", "Anonymous");
+  fprintf(file, "<th"TP">%s\n", "Locked");
 }
 
 /* ------------------------------------------------------------------------- *
@@ -2848,37 +2945,30 @@ analyze_emit_lib_html(analyze_t *self, smapssnap_t *snap, const char *work)
       goto cleanup;
     }
 
-    /* - - - - - - - - - - - - - - - - - - - *
-     * html header
-     * - - - - - - - - - - - - - - - - - - - */
-
-    fprintf(file, "<html>\n");
-    fprintf(file, "<head>\n");
-    fprintf(file, "<title>%s</title>\n", path_basename(self->spath[l]));
-    fprintf(file, "</head>\n");
-    fprintf(file, "<body>\n");
+    analyze_html_header(file, path_basename(self->spath[l]), ".");
 
     /* - - - - - - - - - - - - - - - - - - - *
      * summary table
      * - - - - - - - - - - - - - - - - - - - */
 
     fprintf(file, "<h1>%s: %s</h1>\n", emit_type_titles[EMIT_TYPE_LIBRARY], self->spath[l]);
-    analyze_emit_page_table(self, file, analyze_lib_mem(self, l, 0));
+    analyze_emit_page_table(self, file, analyze_lib_mem(self, l, 0), NULL);
 
     /* - - - - - - - - - - - - - - - - - - - *
      * application xref
      * - - - - - - - - - - - - - - - - - - - */
 
     fprintf(file, "<h1>%s XREF</h1>\n", emit_type_titles[EMIT_TYPE_APPLICATION]);
-    fprintf(file, "<table border=1>\n");
-
+    /* Sort initially by 9th column (PSS) in descending order */
+    fprintf(file, "<table border=1 class=\"tablesorter { sortlist: [[9,0]] }\">\n");
     analyze_emit_xref_header(self, file, EMIT_TYPE_APPLICATION);
+    fprintf(file, "<tbody>\n");
 
     int alo,ahi, blo,bhi;
 
     analyze_get_librange(self, 0, self->mapp_tab->size, &alo, &ahi, l);
 
-    for( int base=alo, rows_out=0; alo < ahi; alo = bhi )
+    for( ; alo < ahi; alo = bhi )
     {
       m = self->mapp_tab->data[alo];
       a = m->smapsmapp_AID;
@@ -2890,36 +2980,26 @@ analyze_emit_lib_html(analyze_t *self, smapssnap_t *snap, const char *work)
         m = self->mapp_tab->data[i];
         t = m->smapsmapp_TID;
 
-        fprintf(file, "<tr>\n");
+        fprintf(file,
+                "<tr>\n"
+                "<th"LT"align=left>"
+                "<a href=\"app%03d.html\">%s</a>\n",
+                a, abbr_title(path_basename(self->sappl[a])));
 
-        if( i == blo )
-        {
-          fprintf(file,
-                  "<th"LT"rowspan=%d align=left>"
-                  "<a href=\"app%03d.html\">%s</a>\n",
-                  bhi-blo, a, path_basename(self->sappl[a]));
-        }
-
-        const char *bg = (((i-base)/3)&1) ? D1 : D2;
-        fprintf(file, "<td%s align=left>%s\n", bg, m->smapsmapp_map.type);
-        fprintf(file, "<td%s align=left style='font-family: monospace;'>%s\n", bg, m->smapsmapp_map.prot);
-        fprintf(file, "<td%s align=right>%s\n", bg, uval(m->smapsmapp_mem.Size));
-        fprintf(file, "<td%s align=right>%s\n", bg, uval(m->smapsmapp_mem.Rss));
-        fprintf(file, "<td%s align=right>%s\n", bg, uval(m->smapsmapp_mem.Private_Dirty));
-        fprintf(file, "<td%s align=right>%s\n", bg, uval(m->smapsmapp_mem.Shared_Dirty));
-        fprintf(file, "<td%s align=right>%s\n", bg, uval(m->smapsmapp_mem.Private_Clean));
-        fprintf(file, "<td%s align=right>%s\n", bg, uval(m->smapsmapp_mem.Shared_Clean));
-        fprintf(file, "<td%s align=right>%s\n", bg, uval(m->smapsmapp_mem.Pss));
-        fprintf(file, "<td%s align=right>%s\n", bg, uval(m->smapsmapp_mem.Swap));
-      }
-      rows_out += bhi-blo;
-      if( rows_out > 25 )
-      {
-        analyze_emit_xref_header(self, file, EMIT_TYPE_APPLICATION);
-        rows_out = 0;
+        fprintf(file, "<td align=left>%s\n", m->smapsmapp_map.type);
+        fprintf(file, "<td align=left style='font-family: monospace;'>%s\n", m->smapsmapp_map.prot);
+        fprintf(file, "<td align=right>%s\n", uval(m->smapsmapp_mem.Size));
+        fprintf(file, "<td align=right>%s\n", uval(m->smapsmapp_mem.Rss));
+        fprintf(file, "<td align=right>%s\n", uval(m->smapsmapp_mem.Private_Dirty));
+        fprintf(file, "<td align=right>%s\n", uval(m->smapsmapp_mem.Shared_Dirty));
+        fprintf(file, "<td align=right>%s\n", uval(m->smapsmapp_mem.Private_Clean));
+        fprintf(file, "<td align=right>%s\n", uval(m->smapsmapp_mem.Shared_Clean));
+        fprintf(file, "<td align=right>%s\n", uval(m->smapsmapp_mem.Pss));
+        fprintf(file, "<td align=right>%s\n", uval(m->smapsmapp_mem.Swap));
+        fprintf(file, "<td align=right>%s\n", uval(m->smapsmapp_mem.Anonymous));
+        fprintf(file, "<td align=right>%s\n", uval(m->smapsmapp_mem.Locked));
       }
     }
-    analyze_emit_xref_header(self, file, EMIT_TYPE_APPLICATION);
 
     fprintf(file, "</table>\n");
 
@@ -2946,6 +3026,25 @@ analyze_emit_lib_html(analyze_t *self, smapssnap_t *snap, const char *work)
 /* ------------------------------------------------------------------------- *
  * analyze_emit_app_html
  * ------------------------------------------------------------------------- */
+
+static const pidinfo_t *
+pidinfo_from_smapssnap(const smapssnap_t *snap, const char *sappl)
+{
+  char temp[512];
+  size_t i;
+  for (i=0; i < array_size(&snap->smapssnap_proclist); ++i)
+  {
+    smapsproc_t *proc = array_get(&snap->smapssnap_proclist, i);
+    if (!proc)
+      continue;
+    snprintf(temp, sizeof temp, "%s (%d)",
+             proc->smapsproc_pid.Name,
+             proc->smapsproc_pid.Pid);
+    if (strcmp(temp, sappl) == 0)
+      return &proc->smapsproc_pid;
+  }
+  return NULL;
+}
 
 static int
 local_app_lib_compare(const void *a1, const void *a2)
@@ -3005,37 +3104,31 @@ analyze_emit_app_html(analyze_t *self, smapssnap_t *snap, const char *work)
       goto cleanup;
     }
 
-    /* - - - - - - - - - - - - - - - - - - - *
-     * html header
-     * - - - - - - - - - - - - - - - - - - - */
-
-    fprintf(file, "<html>\n");
-    fprintf(file, "<head>\n");
-    fprintf(file, "<title>%s</title>\n", self->sappl[a]);
-    fprintf(file, "</head>\n");
-    fprintf(file, "<body>\n");
+    analyze_html_header(file, self->sappl[a], ".");
 
     /* - - - - - - - - - - - - - - - - - - - *
      * summary table
      * - - - - - - - - - - - - - - - - - - - */
 
     fprintf(file, "<h1>%s: %s</h1>\n", emit_type_titles[EMIT_TYPE_APPLICATION], self->sappl[a]);
-    analyze_emit_page_table(self, file, analyze_app_mem(self, a, 0));
+    analyze_emit_page_table(self, file, analyze_app_mem(self, a, 0),
+        pidinfo_from_smapssnap(snap, self->sappl[a]));
 
     /* - - - - - - - - - - - - - - - - - - - *
      * library xref
      * - - - - - - - - - - - - - - - - - - - */
 
     fprintf(file, "<h1>%s XREF</h1>\n", "Mapping");
-    fprintf(file, "<table border=1>\n");
-
+    /* Sort initially by 9th column (PSS) in descending order */
+    fprintf(file, "<table border=1 class=\"tablesorter { sortlist: [[9,0]] }\">\n");
     analyze_emit_xref_header(self, file, EMIT_TYPE_OBJECT);
+    fprintf(file, "<tbody>\n");
 
     int alo,ahi, blo,bhi;
 
     analyze_get_apprange(self, 0, self->mapp_tab->size, &alo, &ahi, a);
 
-    for( int base=alo, rows_out=0; alo < ahi; alo = bhi )
+    for( ; alo < ahi; alo = bhi )
     {
       m = self->mapp_tab->data[alo];
       l = m->smapsmapp_LID;
@@ -3047,37 +3140,26 @@ analyze_emit_app_html(analyze_t *self, smapssnap_t *snap, const char *work)
         m = self->mapp_tab->data[i];
         t = m->smapsmapp_TID;
 
-        fprintf(file, "<tr>\n");
+        fprintf(file,
+                "<tr>\n"
+                "<th"LT"align=left>"
+                "<a href=\"lib%03d.html\">%s</a>\n",
+                l, abbr_title(path_basename(self->spath[l])));
 
-        if( i == blo )
-        {
-          fprintf(file,
-                  "<th"LT"rowspan=%d align=left>"
-                  "<a href=\"lib%03d.html\">%s</a>\n",
-                  bhi-blo, l, path_basename(self->spath[l]));
-        }
-
-        const char *bg = (((i-base)/3)&1) ? D1 : D2;
-
-        fprintf(file, "<td%s align=left>%s\n", bg, m->smapsmapp_map.type);
-        fprintf(file, "<td%s align=left style='font-family: monospace;'>%s\n", bg, m->smapsmapp_map.prot);
-        fprintf(file, "<td%s align=right>%s\n", bg, uval(m->smapsmapp_mem.Size));
-        fprintf(file, "<td%s align=right>%s\n", bg, uval(m->smapsmapp_mem.Rss));
-        fprintf(file, "<td%s align=right>%s\n", bg, uval(m->smapsmapp_mem.Private_Dirty));
-        fprintf(file, "<td%s align=right>%s\n", bg, uval(m->smapsmapp_mem.Shared_Dirty));
-        fprintf(file, "<td%s align=right>%s\n", bg, uval(m->smapsmapp_mem.Private_Clean));
-        fprintf(file, "<td%s align=right>%s\n", bg, uval(m->smapsmapp_mem.Shared_Clean));
-        fprintf(file, "<td%s align=right>%s\n", bg, uval(m->smapsmapp_mem.Pss));
-        fprintf(file, "<td%s align=right>%s\n", bg, uval(m->smapsmapp_mem.Swap));
-      }
-      rows_out += bhi-blo;
-      if( rows_out > 25 )
-      {
-        analyze_emit_xref_header(self, file, EMIT_TYPE_OBJECT);
-        rows_out = 0;
+        fprintf(file, "<td align=left>%s\n", m->smapsmapp_map.type);
+        fprintf(file, "<td align=left style='font-family: monospace;'>%s\n", m->smapsmapp_map.prot);
+        fprintf(file, "<td align=right>%s\n", uval(m->smapsmapp_mem.Size));
+        fprintf(file, "<td align=right>%s\n", uval(m->smapsmapp_mem.Rss));
+        fprintf(file, "<td align=right>%s\n", uval(m->smapsmapp_mem.Private_Dirty));
+        fprintf(file, "<td align=right>%s\n", uval(m->smapsmapp_mem.Shared_Dirty));
+        fprintf(file, "<td align=right>%s\n", uval(m->smapsmapp_mem.Private_Clean));
+        fprintf(file, "<td align=right>%s\n", uval(m->smapsmapp_mem.Shared_Clean));
+        fprintf(file, "<td align=right>%s\n", uval(m->smapsmapp_mem.Pss));
+        fprintf(file, "<td align=right>%s\n", uval(m->smapsmapp_mem.Swap));
+        fprintf(file, "<td align=right>%s\n", uval(m->smapsmapp_mem.Anonymous));
+        fprintf(file, "<td align=right>%s\n", uval(m->smapsmapp_mem.Locked));
       }
     }
-    analyze_emit_xref_header(self, file, EMIT_TYPE_OBJECT);
 
     fprintf(file, "</table>\n");
 
@@ -3115,10 +3197,11 @@ analyze_emit_smaps_table(analyze_t *self, FILE *file, meminfo_t *v)
   fprintf(file, "<th"TP"colspan=2>%s\n", "Clean");
   fprintf(file, "<th"TP"rowspan=2>%s\n", "Resident");
   fprintf(file, "<th"TP"rowspan=2>%s\n", "Size");
-  fprintf(file, "<th"TP"rowspan=2>%s\n", "<abbr title=\"Shared Clean + Shared Dirty\">COW</abbr>");
   fprintf(file, "<th"TP"rowspan=2>%s\n", "Pss");
   fprintf(file, "<th"TP"rowspan=2>%s\n", "Swap");
   fprintf(file, "<th"TP"rowspan=2>%s\n", "Referenced");
+  fprintf(file, "<th"TP"rowspan=2>%s\n", "Anonymous");
+  fprintf(file, "<th"TP"rowspan=2>%s\n", "Locked");
 
   fprintf(file, "<tr>\n");
   fprintf(file, "<th"TP">%s\n", "Private");
@@ -3139,10 +3222,11 @@ analyze_emit_smaps_table(analyze_t *self, FILE *file, meminfo_t *v)
     fprintf(file, "<td %s align=right>%s\n", bg, uval(m->Shared_Clean));
     fprintf(file, "<td %s align=right>%s\n", bg, uval(m->Rss));
     fprintf(file, "<td %s align=right>%s\n", bg, uval(m->Size));
-    fprintf(file, "<td %s align=right>%s\n", bg, uval(meminfo_cowest(m)));
     fprintf(file, "<td %s align=right>%s\n", bg, uval(m->Pss));
     fprintf(file, "<td %s align=right>%s\n", bg, uval(m->Swap));
     fprintf(file, "<td %s align=right>%s\n", bg, uval(m->Referenced));
+    fprintf(file, "<td %s align=right>%s\n", bg, uval(m->Anonymous));
+    fprintf(file, "<td %s align=right>%s\n", bg, uval(m->Locked));
   }
 
   fprintf(file, "</table>\n");
@@ -3152,18 +3236,21 @@ analyze_emit_smaps_table(analyze_t *self, FILE *file, meminfo_t *v)
  * analyze_emit_table_header
  * ------------------------------------------------------------------------- */
 
-static const char *const virtual_memory_column_titles[][4] = {
+#define VM_COLUMN_COUNT 5
+static const char *const virtual_memory_column_titles[][VM_COLUMN_COUNT] = {
   [EMIT_TYPE_LIBRARY] = {
     "<abbr title=\"Largest value\"><i>RSS</i></abbr>",
     "<abbr title=\"Largest value\"><i>Size</i></abbr>",
     "<abbr title=\"Sum of values\">PSS</abbr> ",
     "<abbr title=\"Largest value\"><i>Swap</i></abbr>",
+    "<abbr title=\"Sum of values\">Locked</abbr>",
   },
   [EMIT_TYPE_APPLICATION] = {
     "RSS",
     "Size",
     "PSS ",
     "Swap",
+    "Locked",
   },
 };
 
@@ -3174,17 +3261,21 @@ analyze_emit_table_header(const analyze_t *self, FILE *file, enum emit_type type
   fprintf(file, "<tr>\n");
   fprintf(file, "<th"TP" rowspan=3>%s\n", emit_type_titles[type]);
   fprintf(file, "<th"TP" colspan=4>%s\n", "RSS / Status");
-  fprintf(file, "<th"TP" rowspan=2 colspan=4>%s\n", "Virtual<br>Memory");
-  fprintf(file, "<th"TP" rowspan=3><abbr title=\"Shared Clean + Shared Dirty\">RSS<br>COW<br>Est.</abbr>\n");
+  fprintf(file, "<th"TP" rowspan=2 colspan=%d>%s\n", VM_COLUMN_COUNT, "Virtual<br>Memory");
   if( type == EMIT_TYPE_APPLICATION )
   {
     fprintf(file, "<th"TP" colspan=%d>%s\n", self->ntypes-1, "RSS / Class");
+    fprintf(file, "<th"TP" colspan=%d>%s\n", self->ntypes-1, "Size / Class");
   }
   fprintf(file, "<tr>\n");
   fprintf(file, "<th"TP" colspan=2>%s\n", "Dirty");
   fprintf(file, "<th"TP" colspan=2>%s\n", "Clean");
   if( type == EMIT_TYPE_APPLICATION )
   {
+    for( int i = 1; i < self->ntypes; ++i )
+    {
+      fprintf(file, "<th"TP" rowspan=2>%s\n", self->stype[i]);
+    }
     for( int i = 1; i < self->ntypes; ++i )
     {
       fprintf(file, "<th"TP" rowspan=2>%s\n", self->stype[i]);
@@ -3283,7 +3374,7 @@ analyze_emit_library_table_cmp(const void *a1, const void *a2)
 static void
 analyze_emit_table(analyze_t *self, FILE *file, const char *work, enum emit_type type)
 {
-  int omitted_libs = 0;
+  int omitted_lines = 0;
   int items = 0;
   if( type == EMIT_TYPE_LIBRARY )
     items = self->npaths;
@@ -3303,7 +3394,7 @@ analyze_emit_table(analyze_t *self, FILE *file, const char *work, enum emit_type
     qsort(lut, items, sizeof *lut, analyze_emit_application_table_cmp);
 
   /* Sort initially by 7th column (PSS) in descending order */
-  fprintf(file, "<table border=1 class=\"tablesorter { sortlist: [[7,1]] }\">\n");
+  fprintf(file, "<table border=1 class=\"tablesorter { sortlist: [[7,0]] }\">\n");
   analyze_emit_table_header(self, file, type);
   fprintf(file, "<tbody>\n");
   for( int i = 0; i < items; ++i )
@@ -3318,11 +3409,12 @@ analyze_emit_table(analyze_t *self, FILE *file, const char *work, enum emit_type
      */
     if (type == EMIT_TYPE_LIBRARY && s->Size <= 4)
     {
-      ++omitted_libs;
+      ++omitted_lines;
       continue;
     }
     else if (type == EMIT_TYPE_APPLICATION && meminfo_all_zeroes(s))
     {
+      ++omitted_lines;
       continue;
     }
 
@@ -3331,33 +3423,20 @@ analyze_emit_table(analyze_t *self, FILE *file, const char *work, enum emit_type
 
     if( type == EMIT_TYPE_LIBRARY )
     {
-      fprintf(file, "<a href=\"%s/lib%03d.html\">", work, a);
       title = path_basename(self->spath[a]);
+      fprintf(file, "<a href=\"%s/lib%03d.html\">%s</a>\n",
+          work, a, abbr_title(title));
     }
     else if( type == EMIT_TYPE_APPLICATION )
     {
-      fprintf(file, "<a href=\"%s/app%03d.html\">", work, a);
       title = self->sappl[a];
+      fprintf(file, "<a href=\"%s/app%03d.html\">%s</a>\n",
+          work, a, abbr_title(title));
     }
     else
     {
       abort();
     }
-    if( strlen(title) < TITLE_MAX_LEN )
-    {
-      fprintf(file, "%s", title);
-    }
-    else
-    {
-      fprintf(file, "<abbr title=\"%s\">", title);
-      fprintf(file, HTML_ELLIPSIS);
-      for( size_t j = strlen(title)-TITLE_MAX_LEN; j < strlen(title); ++j )
-      {
-	fprintf(file, "%c", title[j]);
-      }
-      fprintf(file, "</abbr>");
-    }
-    fprintf(file, "</a>\n");
 
     fprintf(file, "<td %s align=right>%s\n", bg, uval(s->Private_Dirty));
     fprintf(file, "<td %s align=right>%s\n", bg, uval(s->Shared_Dirty));
@@ -3367,8 +3446,7 @@ analyze_emit_table(analyze_t *self, FILE *file, const char *work, enum emit_type
     fprintf(file, "<td %s align=right>%s\n", bg, uval(s->Size));
     fprintf(file, "<td %s align=right>%s\n", bg, uval(s->Pss));
     fprintf(file, "<td %s align=right>%s\n", bg, uval(s->Swap));
-
-    fprintf(file, "<td %s align=right>%s\n", bg, uval(meminfo_cowest(s)));
+    fprintf(file, "<td %s align=right>%s\n", bg, uval(s->Locked));
 
     if (type == EMIT_TYPE_APPLICATION)
     {
@@ -3377,15 +3455,35 @@ analyze_emit_table(analyze_t *self, FILE *file, const char *work, enum emit_type
 	meminfo_t *s = analyze_mem(self, a, t, type);
 	fprintf(file, "<td %s align=right>%s\n", bg, uval(meminfo_total(s)));
       }
+      for( int t = 1; t < self->ntypes; ++t )
+      {
+	meminfo_t *s = analyze_mem(self, a, t, type);
+	fprintf(file, "<td %s align=right>%s\n", bg, uval(s->Size));
+      }
     }
   }
   fprintf(file, "</table>\n");
-  if (omitted_libs)
+  if (omitted_lines)
   {
-    fprintf(file,
+    if (type == EMIT_TYPE_LIBRARY)
+    {
+      fprintf(file,
 	"<b>Note:</b> removed %d entries from the table with <i>Size</i> of "
 	"at most 4 kilobytes.\n",
-	omitted_libs);
+	omitted_lines);
+    }
+    else if (type == EMIT_TYPE_APPLICATION)
+    {
+      fprintf(file,
+        "<b style='color:red'>Note:</b> removed %d applications from the table "
+        "that have all entries set to zero. This may indicate that the smaps "
+        "capture is incomplete.\n",
+	omitted_lines);
+    }
+    else
+    {
+      abort();
+    }
   }
 }
 
@@ -3446,41 +3544,40 @@ out:
 }
 
 static int
+copy_to_workdir(const char *workdir, const char *fn)
+{
+  char src[512];
+  char dst[512];
+  snprintf(src, sizeof(src), "/usr/share/sp-smaps-visualize/%s", fn);
+  src[sizeof(src)-1] = 0;
+  snprintf(dst, sizeof(dst), "%s/%s", workdir, fn);
+  dst[sizeof(dst)-1] = 0;
+  return file_copy(src, dst);
+}
+
+static const char *const html_resources[] =
+{
+  "jquery.metadata.js",
+  "jquery.min.js",
+  "jquery.tablesorter.js",
+  "tablesorter.css",
+  "expander.js",
+  "asc.gif",
+  "desc.gif",
+  "bg.gif",
+};
+
+static int
 create_javascript_files(const char *workdir)
 {
+  size_t i;
   int ret;
-  char dst[512];
-
-  snprintf(dst, sizeof(dst), "%s/jquery.metadata.js", workdir);
-  dst[sizeof(dst)-1] = 0;
-  ret = file_copy("/usr/share/sp-smaps-visualize/jquery.metadata.js", dst);
-  if (ret < 0)
-    goto out;
-
-  snprintf(dst, sizeof(dst), "%s/jquery.min.js", workdir);
-  dst[sizeof(dst)-1] = 0;
-  ret = file_copy("/usr/share/sp-smaps-visualize/jquery.min.js", dst);
-  if (ret < 0)
-    goto out;
-
-  snprintf(dst, sizeof(dst), "%s/jquery.tablesorter.min.js", workdir);
-  dst[sizeof(dst)-1] = 0;
-  ret = file_copy("/usr/share/sp-smaps-visualize/jquery.tablesorter.min.js", dst);
-  if (ret < 0)
-    goto out;
-
-  snprintf(dst, sizeof(dst), "%s/tablesorter.css", workdir);
-  dst[sizeof(dst)-1] = 0;
-  ret = file_copy("/usr/share/sp-smaps-visualize/tablesorter.css", dst);
-  if (ret < 0)
-    goto out;
-
-  snprintf(dst, sizeof(dst), "%s/expander.js", workdir);
-  dst[sizeof(dst)-1] = 0;
-  ret = file_copy("/usr/share/sp-smaps-visualize/expander.js", dst);
-  if (ret < 0)
-    goto out;
-
+  for (i=0; i < sizeof(html_resources)/sizeof(*html_resources); ++i)
+  {
+    ret = copy_to_workdir(workdir, html_resources[i]);
+    if (ret < 0)
+      goto out;
+  }
 out:
   return ret;
 }
@@ -3566,22 +3663,7 @@ analyze_emit_main_page(analyze_t *self, smapssnap_t *snap, const char *path)
     perror(path); goto cleanup;
   }
 
-  /* - - - - - - - - - - - - - - - - - - - *
-   * html header
-   * - - - - - - - - - - - - - - - - - - - */
-
-  fprintf(file, "<html>\n");
-  fprintf(file, "<head>\n");
-  fprintf(file, "<title>%s</title>\n", smapssnap_get_source(snap));
-  fprintf(file, "<link rel=\"stylesheet\" type=\"text/css\" href=\"%s/tablesorter.css\" />", work);
-  fprintf(file, "</head>\n");
-  fprintf(file, "<body>\n");
-  fprintf(file, "<script src=\"%s/jquery.min.js\"></script>\n", work);
-  fprintf(file, "<script src=\"%s/jquery.metadata.js\"></script>\n", work);
-  fprintf(file, "<script src=\"%s/jquery.tablesorter.min.js\"></script>\n", work);
-  fprintf(file, "<script src=\"%s/expander.js\"></script>\n", work);
-  fprintf(file, "<script>$(document).ready(function() "
-                "{ $(\".tablesorter\").tablesorter(); } );</script>\n");
+  analyze_html_header(file, smapssnap_get_source(snap), work);
 
   /* - - - - - - - - - - - - - - - - - - - *
    * memory usage tables
@@ -3731,7 +3813,7 @@ analyze_emit_appval_table(analyze_t *self, smapssnap_t *snap, FILE *file)
 
   fprintf(file, "generator = %s %s\n", TOOL_NAME, TOOL_VERS);
   fprintf(file, "\n");
-  fprintf(file, "name,pid,ppid,threads,pri,sha,cln,rss,size,cow,rss,pss,swap,referenced");
+  fprintf(file, "name,pid,ppid,threads,pri,sha,cln,rss,size,rss,pss,swap,referenced");
   for( int t = 1; t < self->ntypes; ++t )
   {
     fprintf(file, ",%s", self->stype[t]);
@@ -3755,7 +3837,6 @@ analyze_emit_appval_table(analyze_t *self, smapssnap_t *snap, FILE *file)
     fprintf(file, ",%u", s->Private_Clean + s->Shared_Clean);
     fprintf(file, ",%u", s->Rss);
     fprintf(file, ",%u", s->Size);
-    fprintf(file, ",%u", meminfo_cowest(s));
     fprintf(file, ",%u", s->Pss);
     fprintf(file, ",%u", s->Swap);
     fprintf(file, ",%u", s->Referenced);
@@ -4891,3 +4972,5 @@ int main(int ac, char **av)
  * sp_smaps_diff
  *
  * - - - - - - - - - - - - - - - - - - - */
+
+/* vim: set sw=2 noet */
