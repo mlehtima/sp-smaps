@@ -4,7 +4,7 @@ Release: 1%{?dist}
 Summary: /proc/pid/smaps snapshot generator
 Group: Development/Tools
 License: GPLv2+
-URL: http://www.gitorious.org/+maemo-tools-developers/maemo-tools/xresponse
+URL: http://www.gitorious.org/+maemo-tools-developers/maemo-tools/sp-smaps
 Source: %{name}_%{version}.tar.gz
 BuildRoot: {_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 BuildRequires: libsysperf-devel
