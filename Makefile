@@ -1,6 +1,6 @@
 # This file is part of sp-smaps.
 #
-# Copyright (C) 2004-2007 by Nokia Corporation
+# Copyright (C) 2004-2007,2011 by Nokia Corporation
 #
 # Contact: Eero Tamminen <eero.tamminen@nokia.com>
 #
@@ -26,6 +26,14 @@
 # -----------------------------------------------------------------------------
 #
 # History:
+#
+# 2011-11-18 Eero Tamminen
+# - code should always be build with -g, use -O2 by default, remove
+#   stripping, debug symbols are split by packaging, -Werror must
+#   be used only in non-final builds
+#
+# 2011-02-07 Tommi Rantala
+# - remove header & so install, install sp_smaps_sorted_totals
 #
 # 25-Feb-2009 Simo Piiroinen
 # - fixed changelog source list
@@ -61,31 +69,31 @@ DATA   ?= $(PREFIX)/share/sp-smaps-visualize
 # Common Compiler Options
 # -----------------------------------------------------------------------------
 
-CFLAGS += -Wall
+LDFLAGS += -g
+CFLAGS += -Wall -g
 CFLAGS += -std=c99
 CFLAGS += -D_GNU_SOURCE
 CFLAGS += -D_THREAD_SAFE
-CFLAGS += -Werror
 
 BUILD  ?= final
-
-ifeq ($(BUILD),final)
-CFLAGS  += -Os
-LDFLAGS += -s
-endif
 
 ifeq ($(BUILD),debug)
 CFLAGS  += -O0
 CFLAGS  += -fno-inline
-CFLAGS  += -g
-LDFLAGS += -g
-endif
-
+else
 ifeq ($(BUILD),gprof)
 CFLAGS  += -O0
-CFLAGS  += -g -pg
-LDFLAGS += -g -pg
+CFLAGS  += -pg
+LDFLAGS += -pg
+else
+# default to -O2, everything except final is built with -Werror
+CFLAGS  += -O2
+ifneq ($(BUILD),final)
+CFLAGS += -Werror
 endif
+endif
+endif
+
 
 # -----------------------------------------------------------------------------
 # Measurement Package Files
