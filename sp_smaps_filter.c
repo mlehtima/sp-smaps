@@ -3612,14 +3612,16 @@ analyze_prune_kthreads(smapssnap_t *snap)
       const size_t kthread_cnt = array_size(&kthreadd->smapsproc_children);
       for (j=0; j < kthread_cnt; ++j)
       {
-	const smapsproc_t *kthread = array_get(&kthreadd->smapsproc_children, j);
+	smapsproc_t *kthread = array_get(&kthreadd->smapsproc_children, j);
 	if (!kthread)
 	  continue;
 	_array_remove_elem(&snap->smapssnap_proclist, kthread);
+	smapsproc_delete(kthread);
       }
       array_clear(&kthreadd->smapsproc_children);
       _array_remove_elem(&snap->smapssnap_proclist, kthreadd);
       _array_remove_elem(&snap->smapssnap_rootproc.smapsproc_children, kthreadd);
+      smapsproc_delete(kthreadd);
       break;
     }
   }
