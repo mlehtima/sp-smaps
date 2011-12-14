@@ -20,7 +20,7 @@ make
 
 %install
 rm -rf %{buildroot}
-make install ROOT=%{buildroot}
+make install DESTDIR=%{buildroot}
 
 %clean
 rm -rf %{buildroot}
