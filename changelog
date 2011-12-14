@@ -1,3 +1,11 @@
+sp-smaps (0.4.1) - 2011-12-14
+  * sp_smaps_sorted_totals:
+    * Add '-q' option for less verbose output mode.
+  * sp_smaps_analyze:
+    * Fix memory leak during kernel thread removal.
+  * Makefile:
+    * Staging directory now specified with DESTDIR (was ROOT).
+
 sp-smaps (0.4.0) - 2011-06-07
   * sp_smaps_snapshot changes:
     * remove parameter -f, allow only to read /proc/*/smaps.
