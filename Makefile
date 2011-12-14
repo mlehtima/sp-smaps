@@ -224,7 +224,7 @@ install-measure-man:: $(MAN_MEASURE)
 install-visualize:: $(addprefix install-visualize-,bin lnk man data)
 
 install-visualize-bin:: $(BIN_VISUALIZE) sp_smaps_sorted_totals
-install-visualize-lnk:: $(addprefix $(DESTDIR)$(BIN)/,$(LNK_VISUALIZE))
+install-visualize-lnk:: install-visualize-bin $(addprefix $(DESTDIR)$(BIN)/,$(LNK_VISUALIZE))
 install-visualize-man:: $(MAN_VISUALIZE)
 	$(call INSTALL_DIR,$^,$(DESTDIR)$(MAN1))
 	$(call INSTALL_MAN,$^,$(DESTDIR)$(MAN1))
