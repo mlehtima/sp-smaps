@@ -1,0 +1,15 @@
+/usr/bin/sp_smaps_analyze
+/usr/bin/sp_smaps_appvals
+/usr/bin/sp_smaps_diff
+/usr/bin/sp_smaps_filter
+/usr/bin/sp_smaps_flatten
+/usr/bin/sp_smaps_normalize
+/usr/bin/sp_smaps_sorted_totals
+/usr/share/man/man1/sp_smaps_analyze.1.gz
+/usr/share/man/man1/sp_smaps_appvals.1.gz
+/usr/share/man/man1/sp_smaps_diff.1.gz
+/usr/share/man/man1/sp_smaps_filter.1.gz
+/usr/share/man/man1/sp_smaps_flatten.1.gz
+/usr/share/man/man1/sp_smaps_normalize.1.gz
+/usr/share/man/man1/sp_smaps_sorted_totals.1.gz
+/usr/share/sp-smaps-visualize/*
