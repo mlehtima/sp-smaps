@@ -8,4 +8,4 @@ Once you have libsysperf installed, you are ready to compile sp-smaps:
   $ make
 
 To install to /usr, run as root:
-  # ROOT=/ make install
+  # make DESTDIR=/ install
