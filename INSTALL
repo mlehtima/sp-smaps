@@ -1,0 +1,11 @@
+SP-SMAPS INSTALLATION INSTRUCTIONS
+==================================
+
+To build sp-smaps from sources, the libsysperf package must be first installed:
+  https://maemo.gitorious.org/maemo-tools/libsysperf
+
+Once you have libsysperf installed, you are ready to compile sp-smaps:
+  $ make
+
+To install to /usr, run as root:
+  # make DESTDIR=/ install

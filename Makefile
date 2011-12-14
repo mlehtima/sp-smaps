@@ -1,6 +1,6 @@
 # This file is part of sp-smaps.
 #
-# Copyright (C) 2004-2007 by Nokia Corporation
+# Copyright (C) 2004-2007,2011 by Nokia Corporation
 #
 # Contact: Eero Tamminen <eero.tamminen@nokia.com>
 #
@@ -27,6 +27,14 @@
 #
 # History:
 #
+# 2011-11-18 Eero Tamminen
+# - code should always be build with -g, use -O2 by default, remove
+#   stripping, debug symbols are split by packaging, -Werror must
+#   be used only in non-final builds
+#
+# 2011-02-07 Tommi Rantala
+# - remove header & so install, install sp_smaps_sorted_totals
+#
 # 25-Feb-2009 Simo Piiroinen
 # - fixed changelog source list
 #
@@ -51,7 +59,7 @@
 # -----------------------------------------------------------------------------
 
 NAME   ?= sp-smaps-visualize
-ROOT   ?= /tmp/$(NAME)-testing
+DESTDIR?= /tmp/$(NAME)-testing
 PREFIX ?= /usr
 BIN    ?= $(PREFIX)/bin
 MAN1   ?= $(PREFIX)/share/man/man1
@@ -61,31 +69,31 @@ DATA   ?= $(PREFIX)/share/sp-smaps-visualize
 # Common Compiler Options
 # -----------------------------------------------------------------------------
 
-CFLAGS += -Wall
+LDFLAGS += -g
+CFLAGS += -Wall -g
 CFLAGS += -std=c99
 CFLAGS += -D_GNU_SOURCE
 CFLAGS += -D_THREAD_SAFE
-CFLAGS += -Werror
 
 BUILD  ?= final
-
-ifeq ($(BUILD),final)
-CFLAGS  += -Os
-LDFLAGS += -s
-endif
 
 ifeq ($(BUILD),debug)
 CFLAGS  += -O0
 CFLAGS  += -fno-inline
-CFLAGS  += -g
-LDFLAGS += -g
-endif
-
+else
 ifeq ($(BUILD),gprof)
 CFLAGS  += -O0
-CFLAGS  += -g -pg
-LDFLAGS += -g -pg
+CFLAGS  += -pg
+LDFLAGS += -pg
+else
+# default to -O2, everything except final is built with -Werror
+CFLAGS  += -O2
+ifneq ($(BUILD),final)
+CFLAGS += -Werror
 endif
+endif
+endif
+
 
 # -----------------------------------------------------------------------------
 # Measurement Package Files
@@ -152,7 +160,7 @@ tags::
 .PHONY: tree stats changelog
 
 tree:: install
-	tree $(ROOT)
+	tree $(DESTDIR)
 
 changelog:
 	sp_gen_changelog >$@ *.c *.py Makefile
@@ -166,12 +174,12 @@ INSTALL_MAN = $(if $1, install -m644 $1 $2/)
 INSTALL_BIN = $(if $1, install -m755 $1 $2/)
 
 install-%-man::
-	$(call INSTALL_DIR,$^,$(ROOT)$(MAN1))
-	$(call INSTALL_MAN,$^,$(ROOT)$(MAN1))
+	$(call INSTALL_DIR,$^,$(DESTDIR)$(MAN1))
+	$(call INSTALL_MAN,$^,$(DESTDIR)$(MAN1))
 
 install-%-bin::
-	$(call INSTALL_DIR,$^,$(ROOT)$(BIN))
-	$(call INSTALL_BIN,$^,$(ROOT)$(BIN))
+	$(call INSTALL_DIR,$^,$(DESTDIR)$(BIN))
+	$(call INSTALL_BIN,$^,$(DESTDIR)$(BIN))
 
 # -----------------------------------------------------------------------------
 # Compilation Macros & Rules
@@ -216,26 +224,26 @@ install-measure-man:: $(MAN_MEASURE)
 install-visualize:: $(addprefix install-visualize-,bin lnk man data)
 
 install-visualize-bin:: $(BIN_VISUALIZE) sp_smaps_sorted_totals
-install-visualize-lnk:: $(addprefix $(ROOT)$(BIN)/,$(LNK_VISUALIZE))
+install-visualize-lnk:: $(addprefix $(DESTDIR)$(BIN)/,$(LNK_VISUALIZE))
 install-visualize-man:: $(MAN_VISUALIZE)
-	$(call INSTALL_DIR,$^,$(ROOT)$(MAN1))
-	$(call INSTALL_MAN,$^,$(ROOT)$(MAN1))
-	ln -fs sp_smaps_filter.1.gz $(ROOT)$(MAN1)/sp_smaps_analyze.1.gz
-	ln -fs sp_smaps_filter.1.gz $(ROOT)$(MAN1)/sp_smaps_appvals.1.gz
-	ln -fs sp_smaps_filter.1.gz $(ROOT)$(MAN1)/sp_smaps_diff.1.gz
-	ln -fs sp_smaps_filter.1.gz $(ROOT)$(MAN1)/sp_smaps_flatten.1.gz
-	ln -fs sp_smaps_filter.1.gz $(ROOT)$(MAN1)/sp_smaps_normalize.1.gz
+	$(call INSTALL_DIR,$^,$(DESTDIR)$(MAN1))
+	$(call INSTALL_MAN,$^,$(DESTDIR)$(MAN1))
+	ln -fs sp_smaps_filter.1.gz $(DESTDIR)$(MAN1)/sp_smaps_analyze.1.gz
+	ln -fs sp_smaps_filter.1.gz $(DESTDIR)$(MAN1)/sp_smaps_appvals.1.gz
+	ln -fs sp_smaps_filter.1.gz $(DESTDIR)$(MAN1)/sp_smaps_diff.1.gz
+	ln -fs sp_smaps_filter.1.gz $(DESTDIR)$(MAN1)/sp_smaps_flatten.1.gz
+	ln -fs sp_smaps_filter.1.gz $(DESTDIR)$(MAN1)/sp_smaps_normalize.1.gz
 
 install-visualize-data::
-	install -m755 -d $(ROOT)$(DATA)
-	install -m644 data/jquery.metadata.js          $(ROOT)$(DATA)/jquery.metadata.js
-	install -m644 data/jquery.min.js               $(ROOT)$(DATA)/jquery.min.js
-	install -m644 data/jquery.tablesorter.js       $(ROOT)$(DATA)/jquery.tablesorter.js
-	install -m644 data/tablesorter.css             $(ROOT)$(DATA)/tablesorter.css
-	install -m644 data/expander.js                 $(ROOT)$(DATA)/expander.js
-	install -m644 data/asc.gif                     $(ROOT)$(DATA)/asc.gif
-	install -m644 data/desc.gif                    $(ROOT)$(DATA)/desc.gif
-	install -m644 data/bg.gif                      $(ROOT)$(DATA)/bg.gif
+	install -m755 -d $(DESTDIR)$(DATA)
+	install -m644 data/jquery.metadata.js          $(DESTDIR)$(DATA)/jquery.metadata.js
+	install -m644 data/jquery.min.js               $(DESTDIR)$(DATA)/jquery.min.js
+	install -m644 data/jquery.tablesorter.js       $(DESTDIR)$(DATA)/jquery.tablesorter.js
+	install -m644 data/tablesorter.css             $(DESTDIR)$(DATA)/tablesorter.css
+	install -m644 data/expander.js                 $(DESTDIR)$(DATA)/expander.js
+	install -m644 data/asc.gif                     $(DESTDIR)$(DATA)/asc.gif
+	install -m644 data/desc.gif                    $(DESTDIR)$(DATA)/desc.gif
+	install -m644 data/bg.gif                      $(DESTDIR)$(DATA)/bg.gif
 
 # -----------------------------------------------------------------------------
 # Target specific Rules
@@ -244,7 +252,7 @@ install-visualize-data::
 sp_smaps_snapshot : LDLIBS += -lsysperf
 sp_smaps_snapshot : sp_smaps_snapshot.o
 
-$(addprefix $(ROOT)$(BIN)/,$(LNK_VISUALIZE)): sp_smaps_filter
+$(addprefix $(DESTDIR)$(BIN)/,$(LNK_VISUALIZE)): sp_smaps_filter
 	ln -fs $< $@
 
 $(LNK_VISUALIZE): sp_smaps_filter
