@@ -707,9 +707,6 @@ static int snapshot_all(void)
   size_t  status_size = 0;
   char   *cmdline_text = 0;
   size_t  cmdline_size = 0;
-  char    exe[256];
-  proc_pid_status_t status;
-  size_t smaps_bytes;
 
   static const char root[] = "/proc";
 
@@ -718,8 +715,6 @@ static int snapshot_all(void)
   int  cnt = 0;
 
   struct dirent *de;
-  char path[256];
-  char *name = NULL;
 
   if( (dir = opendir(root)) == 0 )
   {
@@ -731,6 +726,12 @@ static int snapshot_all(void)
   {
     if( '1' <= de->d_name[0] && de->d_name[0] <= '9' )
     {
+      char exe[256];
+      char path[256];
+      proc_pid_status_t status;
+      size_t smaps_bytes;
+      char *name = NULL;
+
       /* - - - - - - - - - - - - - - - - - - - *
        * /proc/pid/exe -> link to executable
        * - - - - - - - - - - - - - - - - - - - */
