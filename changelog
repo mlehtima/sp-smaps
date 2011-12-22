@@ -1,3 +1,6 @@
+sp-smaps (0.4.2) - 2011-12-22
+  * sp_smaps_snapshot: the `Name' field now collected in more complete form.
+
 sp-smaps (0.4.1) - 2011-12-14
   * sp_smaps_sorted_totals:
     * Add '-q' option for less verbose output mode.
