@@ -630,38 +630,6 @@ proc_pid_status_parse(proc_pid_status_t *self, char *data)
   }
 }
 
-/* ------------------------------------------------------------------------- *
- * fix_command_name  --  filter out funny characters from command line
- * ------------------------------------------------------------------------- */
-
-static char *fix_command_name(char *name)
-{
-  char *s = name;
-  char *d = name;
-
-  for( ; *s; ++s )
-  {
-    switch( *s )
-    {
-    case 'a' ... 'z':
-    case 'A' ... 'Z':
-    case '0' ... '9':
-    case '_':
-    case '-':
-    case '+':
-    case '.':
-      *d++ = *s;
-      break;
-
-    default:
-      *d++ = '_';
-      break;
-    }
-  }
-  *d = 0;
-  return name;
-}
-
 /* ========================================================================= *
  * Snapshot from /proc/pid/smaps information
  * ========================================================================= */
@@ -707,9 +675,6 @@ static int snapshot_all(void)
   size_t  status_size = 0;
   char   *cmdline_text = 0;
   size_t  cmdline_size = 0;
-  char    exe[256];
-  proc_pid_status_t status;
-  size_t smaps_bytes;
 
   static const char root[] = "/proc";
 
@@ -718,8 +683,6 @@ static int snapshot_all(void)
   int  cnt = 0;
 
   struct dirent *de;
-  char path[256];
-  char *name = NULL;
 
   if( (dir = opendir(root)) == 0 )
   {
@@ -731,6 +694,12 @@ static int snapshot_all(void)
   {
     if( '1' <= de->d_name[0] && de->d_name[0] <= '9' )
     {
+      char exe[256];
+      char path[256];
+      proc_pid_status_t status;
+      size_t smaps_bytes;
+      char *name = NULL;
+
       /* - - - - - - - - - - - - - - - - - - - *
        * /proc/pid/exe -> link to executable
        * - - - - - - - - - - - - - - - - - - - */
@@ -764,39 +733,22 @@ static int snapshot_all(void)
       snprintf(path, sizeof path, "%s/%s/smaps", root, de->d_name);
       output_fmt("==> %s <==\n", path);
 
-      /* Avoid feeding basename cases that might confuse it, such as
-         sshd: pts/2 */
+      name = strip(cmdline_text);
 
-      if ( *(cmdline_text) == '/' )
+      if( name == NULL || *name == 0 )
       {
-        name = strip(basename(cmdline_text));
+        name = strip(exe);
       }
-      else if ( *(cmdline_text) == '.' )
+      if( name == NULL || *name == 0 )
       {
-        char *iter = cmdline_text;
-        while ( *(iter)+1 != '\0' && *(iter)+1 == '.' )
-        {
-          iter++;
-        }
-        if ( *(iter) == '/' )
-        {
-          name = strip(basename(cmdline_text));
-        }
+        name = strip(status.Name);
       }
-      else
+      if( name == NULL || *name == 0 )
       {
-        name = strip(cmdline_text);
+        name = "unknown";
       }
 
-      if( name == 0 || *name == 0 )
-      {
-        if( *(name = strip(basename(exe))) == 0 )
-        {
-          name = strip(status.Name);
-        }
-      }
-
-      output_fmt("#Name: %s\n", *name ? fix_command_name(name): "unknown");
+      output_fmt("#Name: %s\n", name);
 
 #define X(v) if( status.v ) output_fmt("#%s: %s\n",#v,status.v);
       X(Pid)

@@ -78,7 +78,7 @@ usage ()
 
 # sp_gen_manfile wants --version:
 if [ "$1" = "--version" ] ; then
-	echo "0.4.1"
+	echo "0.4.2"
 	exit 0
 fi
 

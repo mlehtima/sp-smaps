@@ -62,6 +62,7 @@ Group: Development/Tools
 %{_bindir}/sp_smaps_analyze
 %{_bindir}/sp_smaps_flatten
 %{_bindir}/sp_smaps_sorted_totals
+%{_datadir}/%{name}-visualize/
 %{_datadir}/%{name}-visualize/tablesorter.css
 %{_datadir}/%{name}-visualize/desc.gif
 %{_datadir}/%{name}-visualize/jquery.tablesorter.js
