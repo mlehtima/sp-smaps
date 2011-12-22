@@ -1,3 +1,9 @@
+sp-smaps (0.4.2-1) unstable; urgency=low
+
+  * Fixes: NB#295311 - sp_smaps_snapshot may store wrong Name
+
+ -- Tommi Rantala <ext-tommi.1.rantala@nokia.com>  Thu, 22 Dec 2011 15:55:55 +0200
+
 sp-smaps (0.4.1-1) unstable; urgency=low
 
   * Fixes: NB#290913 - libsysperf uses non-standard/non-safe GCC extension
