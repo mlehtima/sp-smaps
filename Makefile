@@ -157,12 +157,12 @@ distclean:: clean
 tags::
 	ctags *.c *.h
 
-.PHONY: tree stats changelog
+.PHONY: tree stats changelog.1
 
 tree:: install
 	tree $(DESTDIR)
 
-changelog:
+changelog.1:
 	sp_gen_changelog >$@ *.c *.py Makefile
 
 # -----------------------------------------------------------------------------
