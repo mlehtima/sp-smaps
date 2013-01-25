@@ -1,0 +1,16 @@
+Name: sp-smaps
+Summary: Utilities for collecting whole system SMAPS data
+Version: 0.4.2
+Release: 1
+Group: Development/Tools
+License: GPLv2
+URL: git://gitorious.org/maemo-tools/sp-smaps.git
+Sources:
+    - "%{name}-v%{version}.tar.gz"
+Description: Utilities for collecting whole system SMAPS data and post-processing the information in it to cross-linked HTML tables
+
+PkgBR:
+    - python
+    - libsysperf-devel
+Configure: none
+Builder: none
