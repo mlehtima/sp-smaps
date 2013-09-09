@@ -13,6 +13,7 @@ Group:      Development/Tools
 License:    GPLv2
 URL:        git://gitorious.org/maemo-tools/sp-smaps.git
 Source0:    %{name}-v%{version}.tar.gz
+Source1:    _src
 Source100:  sp-smaps.yaml
 BuildRequires:  python
 BuildRequires:  libsysperf-devel

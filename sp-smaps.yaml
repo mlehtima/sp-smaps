@@ -7,6 +7,7 @@ License: GPLv2
 URL: git://gitorious.org/maemo-tools/sp-smaps.git
 Sources:
     - "%{name}-v%{version}.tar.gz"
+    - "_src"
 Description: Utilities for collecting whole system SMAPS data and post-processing the information in it to cross-linked HTML tables
 
 PkgBR:
