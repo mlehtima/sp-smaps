@@ -75,6 +75,7 @@ make install DESTDIR=%{buildroot}
 %{_mandir}/man1/sp_smaps_normalize.1.gz
 %{_mandir}/man1/sp_smaps_snapshot.1.gz
 %{_mandir}/man1/sp_smaps_sorted_totals.1.gz
+%dir /usr/share/sp-smaps-visualize
 /usr/share/sp-smaps-visualize/asc.gif
 /usr/share/sp-smaps-visualize/bg.gif
 /usr/share/sp-smaps-visualize/desc.gif
