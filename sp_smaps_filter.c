@@ -55,6 +55,7 @@
 #include <assert.h>
 #include <math.h>
 #include <errno.h>
+#include <limits.h>
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -3546,8 +3547,8 @@ out:
 static int
 copy_to_workdir(const char *workdir, const char *fn)
 {
-  char src[512];
-  char dst[512];
+  char src[PATH_MAX];
+  char dst[PATH_MAX];
   snprintf(src, sizeof(src), "/usr/share/sp-smaps-visualize/%s", fn);
   src[sizeof(src)-1] = 0;
   snprintf(dst, sizeof(dst), "%s/%s", workdir, fn);

@@ -60,6 +60,7 @@
 #include <errno.h>
 #include <dirent.h>
 #include <sched.h>
+#include <limits.h>
 
 #define MSG_DISABLE_PROGRESS 0
 
@@ -695,7 +696,7 @@ static int snapshot_all(void)
     if( '1' <= de->d_name[0] && de->d_name[0] <= '9' )
     {
       char exe[256];
-      char path[256];
+      char path[PATH_MAX];
       proc_pid_status_t status;
       size_t smaps_bytes;
       char *name = NULL;
