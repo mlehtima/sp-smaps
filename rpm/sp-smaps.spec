@@ -2,11 +2,9 @@ Name:       sp-smaps
 Summary:    Utilities for collecting whole system SMAPS data
 Version:    0.4.2.2
 Release:    1
-Group:      Development/Tools
 License:    GPLv2
 URL:        https://github.com/mer-tools/sp-smaps
 Source0:    %{name}-%{version}.tar.gz
-BuildRequires:  python
 BuildRequires:  libsysperf-devel
 
 %description
@@ -14,21 +12,19 @@ Utilities for collecting whole system SMAPS data and post-processing the informa
 
 %package doc
 Summary:   Documentation for %{name}
-Group:     Documentation
 Requires:  %{name} = %{version}-%{release}
 
 %description doc
 Man pages for %{name}.
 
 %prep
-%setup -q -n %{name}-%{version}
+%autosetup -n %{name}-%{version}
 
 %build
 # building is done in during install. Empty build section to avoid rpmlint warning
 
 %install
-rm -rf %{buildroot}
-make install DESTDIR=%{buildroot}
+%make_install
 
 mkdir -p %{buildroot}%{_docdir}/%{name}-%{version}
 install -m0644 README.txt %{buildroot}%{_docdir}/%{name}-%{version}
